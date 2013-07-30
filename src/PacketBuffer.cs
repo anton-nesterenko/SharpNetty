@@ -25,6 +25,11 @@ namespace SharpNetty
             WriteShort(packetIndex);
         }
 
+        public int GetOffset()
+        {
+            return _offset;
+        }
+
         public PacketBuffer()
         {
             // Always preallocate 2 bytes by default.

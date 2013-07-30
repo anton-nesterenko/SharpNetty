@@ -10,8 +10,8 @@ namespace SharpNetty
     {
         protected Socket _mainSocket;
         private const ushort MAX_MESSAGE_LENGTH = 525;
-        private short messageBufferLength = 0;
-        private List<Packet> messageBuffer = new List<Packet>();
+        private short _messageBufferLength = 0;
+        private List<Packet> _messageBuffer = new List<Packet>();
         private List<Packet> _packets = new List<Packet>();
         private bool _sendingPacket;
 
@@ -19,6 +19,7 @@ namespace SharpNetty
         {
             _mainSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _mainSocket.NoDelay = true;
+            RegisterPacket(new SyncPacket());
         }
 
         /// <summary>
@@ -52,54 +53,54 @@ namespace SharpNetty
 
             while (socket.Connected)
             {
-                try
+                //try
+                //{
+                pLength = 2;
+                curRead = 0;
+                data = new byte[pLength];
+                packetBuffer = new PacketBuffer();
+
+                curRead = socket.Receive(data, 0, pLength, SocketFlags.None);
+
+                while (curRead < pLength)
+                    curRead += socket.Receive(data, curRead, pLength - curRead, SocketFlags.None);
+
+                curRead = 0;
+                pLength = BitConverter.ToInt16(data, 0);
+                data = new byte[pLength];
+
+                curRead = socket.Receive(data, 0, pLength, SocketFlags.None);
+
+                while (curRead < pLength)
+                    curRead += socket.Receive(data, curRead, pLength - curRead, SocketFlags.None);
+
+                packetBuffer.FillBuffer(data);
+
+                for (int i = 0; i < data.Length; i++)
                 {
-                    pLength = 2;
-                    curRead = 0;
-                    data = new byte[pLength];
-                    packetBuffer = new PacketBuffer();
+                    packetIndex = packetBuffer.ReadShort();
+                    int length = packetBuffer.ReadShort();
 
-                    curRead = socket.Receive(data, 0, pLength, SocketFlags.None);
-
-                    while (curRead < pLength)
-                        curRead += socket.Receive(data, curRead, pLength - curRead, SocketFlags.None);
-
-                    curRead = 0;
-                    pLength = BitConverter.ToInt16(data, 0);
-                    data = new byte[pLength];
-
-                    curRead = socket.Receive(data, 0, pLength, SocketFlags.None);
-
-                    while (curRead < pLength)
-                        curRead += socket.Receive(data, curRead, pLength - curRead, SocketFlags.None);
-
-                    packetBuffer.FillBuffer(data);
-
-                    for (int i = 0; i < data.Length; i++)
-                    {
-                        packetIndex = packetBuffer.ReadShort();
-                        int length = packetBuffer.ReadShort();
-
-                        execPacket = Activator.CreateInstance(_packets[packetIndex].GetType()) as Packet;
-                        execPacket.GetPacketBuffer().FillBuffer(data);
-                        execPacket.GetPacketBuffer().SetOffset(i + 4);
-                        execPacket.Execute(this);
-                        i += length + 4;
-                    }
+                    execPacket = Activator.CreateInstance(_packets[packetIndex].GetType()) as Packet;
+                    execPacket.GetPacketBuffer().FillBuffer(data);
+                    execPacket.GetPacketBuffer().SetOffset(i + 4);
+                    execPacket.Execute(this);
+                    i += length + 4;
                 }
-                catch (Exception ex)
-                {
-                    if (ex is SocketException || ex is ObjectDisposedException)
-                    {
-                        // If this is our client's incoming data listener, there's no need to do anything here.
-                        if (socket == _mainSocket) return;
+                //}
+                //catch (Exception ex)
+                //{
+                //    if (ex is SocketException || ex is ObjectDisposedException)
+                //    {
+                //        // If this is our client's incoming data listener, there's no need to do anything here.
+                //        if (socket == _mainSocket) return;
 
-                        Console.WriteLine("We lost connection with: " + socket.RemoteEndPoint);
-                        socket.Disconnect(false);
-                        socket.Dispose();
-                    }
-                    else throw ex;
-                }
+                //        Console.WriteLine("We lost connection with: " + socket.RemoteEndPoint);
+                //        socket.Disconnect(false);
+                //        socket.Dispose();
+                //    }
+                //    else throw ex;
+                //}
             }
         }
 
@@ -114,29 +115,29 @@ namespace SharpNetty
             {
                 while (_sendingPacket) ;
 
-                if (messageBufferLength + packet.GetPacketBuffer().ReadBytes().Length > MAX_MESSAGE_LENGTH || packet.GetPriority() == Packet.Priority.High || forceSend)
+                if (_messageBufferLength + packet.GetPacketBuffer().ReadBytes().Length > MAX_MESSAGE_LENGTH || packet.GetPriority() == Packet.Priority.High || forceSend)
                 {
                     _sendingPacket = true;
-                    messageBuffer.Add(packet);
-                    messageBufferLength += (short)packet.GetPacketBuffer().ReadBytes().Length;
+                    _messageBuffer.Add(packet);
+                    _messageBufferLength += (short)packet.GetPacketBuffer().ReadBytes().Length;
 
                     Packet tmpPacket;
                     byte[] data;
                     PacketBuffer packetBuffer = new PacketBuffer();
 
-                    for (int i = messageBuffer.Count - 1; i > 0; i++)
+                    for (int i = _messageBuffer.Count - 1; i > 0; i++)
                     {
-                        if ((int)messageBuffer[i].GetPriority() > (int)messageBuffer[i - 1].GetPriority() || ((int)messageBuffer[i].GetTimeStamp() < (int)messageBuffer[i - 1].GetTimeStamp() && messageBuffer[i].GetPriority() == messageBuffer[i - 1].GetPriority()))
+                        if ((int)_messageBuffer[i].GetPriority() > (int)_messageBuffer[i - 1].GetPriority() || ((int)_messageBuffer[i].GetTimeStamp() < (int)_messageBuffer[i - 1].GetTimeStamp() && _messageBuffer[i].GetPriority() == _messageBuffer[i - 1].GetPriority()))
                         {
-                            tmpPacket = messageBuffer[i - 1];
-                            messageBuffer[i - 1] = messageBuffer[i];
-                            messageBuffer[i] = tmpPacket;
+                            tmpPacket = _messageBuffer[i - 1];
+                            _messageBuffer[i - 1] = _messageBuffer[i];
+                            _messageBuffer[i] = tmpPacket;
                             i = 0;
                             continue;
                         }
                     }
 
-                    foreach (var mPacket in messageBuffer)
+                    foreach (var mPacket in _messageBuffer)
                     {
                         packetBuffer.WriteShort((short)mPacket.GetPacketID());
                         packetBuffer.WriteShort((short)mPacket.GetPacketBuffer().ReadBytes().Length);
@@ -147,12 +148,12 @@ namespace SharpNetty
                     data = packetBuffer.ReadBytes();
                     socket.Send(BitConverter.GetBytes((short)data.Length));
                     socket.Send(data);
-                    messageBuffer.Clear();
+                    _messageBuffer.Clear();
                     _sendingPacket = false;
                 }
                 else if (packet.GetPriority() == Packet.Priority.None)
                 {
-                    messageBuffer.Add(packet);
+                    _messageBuffer.Add(packet);
                 }
                 else if (packet.GetPriority() == Packet.Priority.Normal)
                 {

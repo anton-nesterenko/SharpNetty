@@ -7,9 +7,35 @@ namespace SharpNetty
 {
     public sealed class NettyServer : Netty
     {
+        public class Connection
+        {
+            private Socket _socket;
+            private long _tickOffset;
+
+            public Connection(Socket socket)
+            {
+                _socket = socket;
+            }
+
+            public Socket GetSocket()
+            {
+                return _socket;
+            }
+
+            public void SetTickOffset(long value)
+            {
+                _tickOffset = value;
+            }
+
+            public long GetTickOffset()
+            {
+                return _tickOffset;
+            }
+        }
+
         private int _socketPort;
         private IPEndPoint _socketAddress;
-        private Socket[] _connections;
+        private Connection[] _connections;
 
         public delegate void HandleConnectionChange(int socketIndex);
 
@@ -21,9 +47,14 @@ namespace SharpNetty
         /// </summary>
         /// <param name="index">Index value at which the socket is stored.</param>
         /// <returns></returns>
-        public Socket GetSocket(int index)
+        public Connection GetConnection(int index)
         {
-            if (index > _connections.Length || _connections[index] == null) throw new Exception("Invaid Socket Request!"); return _connections[index];
+            if (_connections[index] == null || _connections[index].GetSocket() == null)
+            {
+                throw new Exception("Invaid Socket Request!");
+            }
+
+            return _connections[index];
         }
 
         /// <summary>
@@ -53,7 +84,9 @@ namespace SharpNetty
         /// <param name="backLog">Maximum amount of pending connections</param>
         public void Listen(int backLog = 25, int maximumConnections = 60)
         {
-            _connections = new Socket[maximumConnections];
+            _connections = new Connection[maximumConnections];
+
+            RegisterPacket(new SyncPacket());
 
             new Thread(() =>
             {
@@ -75,8 +108,14 @@ namespace SharpNetty
                     {
                         if (_connections[i] == null)
                         {
-                            _connections[i] = incomingSocket;
-                            _connections[i].NoDelay = true;
+                            _connections[i] = new Connection(incomingSocket);
+                            _connections[i].GetSocket().NoDelay = true;
+
+                            SyncPacket syncPacket = new SyncPacket();
+                            syncPacket.SetConnectionID(i);
+                            syncPacket.WriteData();
+                            SendPacket(syncPacket, i, false);
+
                             index = i;
                             break;
                         }
@@ -110,7 +149,7 @@ namespace SharpNetty
             for (int i = 0; i < _connections.Length; i++)
             {
                 if (_connections[i] != null)
-                    SendPacket(packet, _connections[i], false);
+                    SendPacket(packet, _connections[i].GetSocket(), false);
             }
         }
 
@@ -122,7 +161,7 @@ namespace SharpNetty
         /// <param name="forceSend">Force the current Message Buffer to be sent and flushed.</param>
         public void SendPacket(Packet packet, int socketID, bool forceSend = false)
         {
-            base.SendPacket(packet, _connections[socketID], forceSend);
+            base.SendPacket(packet, _connections[socketID].GetSocket(), forceSend);
         }
     }
 }

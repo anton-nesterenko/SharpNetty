@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpNetty", "src\SharpNetty.csproj", "{746BAFBC-96DA-42F0-B191-01175F101AE3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApplication1", "ConsoleApplication1\ConsoleApplication1.csproj", "{58719429-1E3C-4E52-A70A-B094A33E5D81}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -13,6 +15,10 @@ Global
 		{746BAFBC-96DA-42F0-B191-01175F101AE3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{746BAFBC-96DA-42F0-B191-01175F101AE3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{746BAFBC-96DA-42F0-B191-01175F101AE3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{58719429-1E3C-4E52-A70A-B094A33E5D81}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{58719429-1E3C-4E52-A70A-B094A33E5D81}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{58719429-1E3C-4E52-A70A-B094A33E5D81}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{58719429-1E3C-4E52-A70A-B094A33E5D81}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
