@@ -16,7 +16,7 @@ namespace SharpNetty
             _connectionID = value;
         }
 
-        public override void WriteData()
+        public void WriteData()
         {
             GetPacketBuffer().WriteInteger(_connectionID);
             GetPacketBuffer().WriteLong(Environment.TickCount);

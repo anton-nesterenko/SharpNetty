@@ -50,8 +50,6 @@ namespace SharpNetty
             return _packetBuffer;
         }
 
-        public abstract void WriteData();
-
         public abstract void Execute(Netty netty);
     }
 }
