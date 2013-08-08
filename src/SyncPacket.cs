@@ -1,15 +1,11 @@
 ﻿using System;
+using System.Net.Sockets;
 
 namespace SharpNetty
 {
     internal class SyncPacket : Packet
     {
         private int _connectionID;
-
-        public SyncPacket()
-            : base(Priority.High)
-        {
-        }
 
         public void SetConnectionID(int value)
         {
@@ -18,11 +14,12 @@ namespace SharpNetty
 
         public void WriteData()
         {
+            SetPriority(Priority.High);
             GetPacketBuffer().WriteInteger(_connectionID);
             GetPacketBuffer().WriteLong(Environment.TickCount);
         }
 
-        public override void Execute(Netty netty)
+        public override void Execute(Netty netty, int socketIndex)
         {
             int connectionID = GetPacketBuffer().ReadInteger();
             long value = GetPacketBuffer().ReadLong();

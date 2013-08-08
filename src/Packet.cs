@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net.Sockets;
 
 namespace SharpNetty
 {
@@ -11,13 +12,18 @@ namespace SharpNetty
             High
         }
 
-        public Packet(Priority priority)
+        public Packet()
         {
-            _priority = priority;
+            SetPriority(Priority.Normal);
             _timeStamp = Environment.TickCount;
         }
 
-        private readonly Priority _priority;
+        private Priority _priority;
+
+        public void SetPriority(Priority priority)
+        {
+            _priority = priority;
+        }
 
         public Priority GetPriority()
         {
@@ -50,6 +56,6 @@ namespace SharpNetty
             return _packetBuffer;
         }
 
-        public abstract void Execute(Netty netty);
+        public abstract void Execute(Netty netty, int socketIndex);
     }
 }

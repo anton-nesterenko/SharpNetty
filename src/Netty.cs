@@ -84,7 +84,7 @@ namespace SharpNetty
                     execPacket = Activator.CreateInstance(_packets[packetIndex].GetType()) as Packet;
                     execPacket.GetPacketBuffer().FillBuffer(data);
                     execPacket.GetPacketBuffer().SetOffset(i + 4);
-                    execPacket.Execute(this);
+                    execPacket.Execute(this, socketIndex);
                     i += length + 4;
                 }
                 //}
