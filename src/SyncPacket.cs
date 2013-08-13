@@ -30,7 +30,8 @@ namespace SharpNetty
 
                 NettyServer nettyServer = netty as NettyServer;
 
-                // Set the Tick Offset based on the two recorded times + an additional 400 milliseconds as a guessed amount of time the SyncPacket took to process and transmit.
+                // Set the server tick offset based on the two ticks + a 100ms latency (guess).
+                // This will be improved in the future.
                 nettyServer.GetConnection(connectionID).SetTickOffset(Math.Abs(value - value2) + 100);
 
                 Console.WriteLine(nettyServer.GetConnection(connectionID).GetTickOffset());
