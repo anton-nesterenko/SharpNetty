@@ -53,54 +53,57 @@ namespace SharpNetty
 
             while (socket.Connected)
             {
-                //try
-                //{
-                pLength = 2;
-                curRead = 0;
-                data = new byte[pLength];
-                packetBuffer = new PacketBuffer();
-
-                curRead = socket.Receive(data, 0, pLength, SocketFlags.None);
-
-                while (curRead < pLength)
-                    curRead += socket.Receive(data, curRead, pLength - curRead, SocketFlags.None);
-
-                curRead = 0;
-                pLength = BitConverter.ToInt16(data, 0);
-                data = new byte[pLength];
-
-                curRead = socket.Receive(data, 0, pLength, SocketFlags.None);
-
-                while (curRead < pLength)
-                    curRead += socket.Receive(data, curRead, pLength - curRead, SocketFlags.None);
-
-                packetBuffer.FillBuffer(data);
-
-                for (int i = 0; i < data.Length; i++)
+                try
                 {
-                    packetIndex = packetBuffer.ReadShort();
-                    int length = packetBuffer.ReadShort();
+                    pLength = 2;
+                    curRead = 0;
+                    data = new byte[pLength];
+                    packetBuffer = new PacketBuffer();
 
-                    execPacket = Activator.CreateInstance(_packets[packetIndex].GetType()) as Packet;
-                    execPacket.GetPacketBuffer().FillBuffer(data);
-                    execPacket.GetPacketBuffer().SetOffset(i + 4);
-                    execPacket.Execute(this, socketIndex);
-                    i += length + 4;
+                    curRead = socket.Receive(data, 0, pLength, SocketFlags.None);
+
+                    while (curRead < pLength)
+                        curRead += socket.Receive(data, curRead, pLength - curRead, SocketFlags.None);
+
+                    curRead = 0;
+                    pLength = BitConverter.ToInt16(data, 0);
+                    data = new byte[pLength];
+
+                    curRead = socket.Receive(data, 0, pLength, SocketFlags.None);
+
+                    while (curRead < pLength)
+                        curRead += socket.Receive(data, curRead, pLength - curRead, SocketFlags.None);
+
+                    packetBuffer.FillBuffer(data);
+
+                    for (int i = 0; i < data.Length; i++)
+                    {
+                        packetIndex = packetBuffer.ReadShort();
+                        int length = packetBuffer.ReadShort();
+
+                        execPacket = Activator.CreateInstance(_packets[packetIndex].GetType()) as Packet;
+                        execPacket.GetPacketBuffer().FillBuffer(data);
+                        execPacket.GetPacketBuffer().SetOffset(i + 4);
+                        execPacket.Execute(this, socketIndex);
+                        i += length + 4;
+                    }
                 }
-                //}
-                //catch (Exception ex)
-                //{
-                //    if (ex is SocketException || ex is ObjectDisposedException)
-                //    {
-                //        // If this is our client's incoming data listener, there's no need to do anything here.
-                //        if (socket == _mainSocket) return;
+                catch (Exception ex)
+                {
+                    if (ex is SocketException || ex is ObjectDisposedException)
+                    {
+                        // If this is our client's incoming data listener, there's no need to do anything here.
+                        if (this.GetType() == typeof(NettyClient)) return;
 
-                //        Console.WriteLine("We lost connection with: " + socket.RemoteEndPoint);
-                //        socket.Disconnect(false);
-                //        socket.Dispose();
-                //    }
-                //    else throw ex;
-                //}
+                        Console.WriteLine("We lost connection with: " + socket.RemoteEndPoint);
+
+                        var nettyServer = this as NettyServer;
+
+                        if (nettyServer.Handle_LostConnection != null)
+                            nettyServer.Handle_LostConnection.Invoke(socketIndex);
+                    }
+                    else throw ex;
+                }
             }
         }
 
