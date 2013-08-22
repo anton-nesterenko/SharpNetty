@@ -10,13 +10,15 @@ namespace SharpNetty
     {
         protected Socket _mainSocket;
         private const ushort MAX_MESSAGE_LENGTH = 525;
-        private short _messageBufferLength = 0;
-        private List<Packet> _messageBuffer = new List<Packet>();
-        private List<Packet> _packets = new List<Packet>();
+        private short _messageBufferLength;
+        private List<Packet> _messageBuffer;
+        private List<Packet> _registeredPackets;
         private bool _sendingPacket;
 
         public Netty()
         {
+            _messageBuffer = new List<Packet>();
+            _registeredPackets = new List<Packet>();
             _mainSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _mainSocket.NoDelay = true;
             RegisterPacket(new SyncPacket());
@@ -25,9 +27,11 @@ namespace SharpNetty
         /// <summary>
         /// Registeres the specified packet for use.
         /// </summary>
-        /// <param name="packet"></param>
+        /// <param name="packet">Packet derived object to be registered.</param>
         public void RegisterPacket(Packet packet)
         {
+            if (packet == null) throw new Exception("Null Packet Exception!")
+            
             _packets.Add(packet);
             packet.SetPacketID(_packets.Count - 1);
         }
@@ -92,17 +96,36 @@ namespace SharpNetty
                 {
                     if (ex is SocketException || ex is ObjectDisposedException)
                     {
-                        // If this is our client's incoming data listener, there's no need to do anything here.
-                        if (this.GetType() == typeof(NettyClient)) return;
+                        // If this is our client's incoming data listener,
+                        // we should just allow the socket to disconnect, and then notify the deriving class
+                        // that the socket has disconnected!
+                        if (this.GetType() == typeof(NettyClient))
+                        {
+                            // Create a new reference of this object and cast it to NettyClient.
+                            var nettyClient = this.GetType() as NettyClient;
+                            
+                            // Invoke the SocketDisconnected method.
+                            // nettyClient.SocketDisconnected();
+                            
+                            // We've cleaned up everything here; there's no need to notify the end user.
+                            return;
+                        }
 
                         Console.WriteLine("We lost connection with: " + socket.RemoteEndPoint);
-
+                        
+                        // Create a new reference of this object and cast it to NettyServer.
                         var nettyServer = this as NettyServer;
-
+                        
+                        // Invoke the lost connection delegate.
                         if (nettyServer.Handle_LostConnection != null)
                             nettyServer.Handle_LostConnection.Invoke(socketIndex);
                     }
-                    else throw ex;
+                    else 
+                    {
+                        // We're receiving an exception that we shouldn't handle internally...
+                        // We should notify the end user.
+                        throw ex;
+                    }
                 }
             }
         }
@@ -114,28 +137,52 @@ namespace SharpNetty
         /// <param name="socket">Socket containing the remote connection information of the socket that the packet will be sent to.</param>
         protected void SendPacket(Packet packet, Socket socket, bool forceSend)
         {
+            
+            Packet tmpPacket;
+            byte[] data;
+            PacketBuffer packetBuffer;
+            
             try
             {
+                // If the MessageBuffer is currently in the process of sending...
+                // Halt this packet until the task is complete.
                 while (_sendingPacket) ;
 
-                if (_messageBufferLength + packet.GetPacketBuffer().ReadBytes().Length > MAX_MESSAGE_LENGTH || packet.GetPriority() == Packet.Priority.High || forceSend)
+                
+                // If the MessageBufferLength has reached its maximum capacity, or the packet's priority is that of
+                // Priority.High, or if forceSend is set to true, we need to process and send the MessageBuffer.
+                if (_messageBufferLength + packet.GetPacketBuffer().ReadBytes().Length > MAX_MESSAGE_LENGTH 
+                        || packet.GetPriority() == Packet.Priority.High || forceSend)
                 {
+                    // We are currently processing and sending our MessageBuffer; therefore, we need to
+                    // set _sendingPacket to true in order to maintain cross thread stability.
                     _sendingPacket = true;
+                    
+                    // Add the passed packet into the MessageBuffer.
                     _messageBuffer.Add(packet);
+                    
+                    // Increase the MessageBuffer's length by the packet's length.
                     _messageBufferLength += (short)packet.GetPacketBuffer().ReadBytes().Length;
-
-                    Packet tmpPacket;
-                    byte[] data;
+                    
+                    // Create a new PacketBuffer object.
                     PacketBuffer packetBuffer = new PacketBuffer();
 
+                    // Loop through and sort the packets within our MesageBuffer based on: Priority and its Timestamp.
+                    // This is based on the Bubble Sort Alg.
                     for (int i = _messageBuffer.Count - 1; i > 0; i++)
                     {
-                        if ((int)_messageBuffer[i].GetPriority() > (int)_messageBuffer[i - 1].GetPriority() || ((int)_messageBuffer[i].GetTimeStamp() < (int)_messageBuffer[i - 1].GetTimeStamp() && _messageBuffer[i].GetPriority() == _messageBuffer[i - 1].GetPriority()))
+                        if ((int)_messageBuffer[i].GetPriority() > (int)_messageBuffer[i - 1].GetPriority() 
+                            || ((int)_messageBuffer[i].GetTimeStamp() < (int)_messageBuffer[i - 1].GetTimeStamp() 
+                                & _messageBuffer[i].GetPriority() == _messageBuffer[i - 1].GetPriority()))
                         {
                             tmpPacket = _messageBuffer[i - 1];
                             _messageBuffer[i - 1] = _messageBuffer[i];
                             _messageBuffer[i] = tmpPacket;
+                            
+                            // We need to restart the "Bubble" sort.
                             i = 0;
+                            
+                            // Continue the loop at the beginning.
                             continue;
                         }
                     }
