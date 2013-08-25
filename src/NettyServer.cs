@@ -86,8 +86,6 @@ namespace SharpNetty
         {
             _connections = new Connection[maximumConnections];
 
-            RegisterPacket(new SyncPacket());
-
             new Thread(() =>
             {
                 Socket incomingSocket;

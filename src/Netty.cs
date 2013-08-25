@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Threading;
 
 namespace SharpNetty
@@ -21,19 +22,26 @@ namespace SharpNetty
             _registeredPackets = new List<Packet>();
             _mainSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _mainSocket.NoDelay = true;
-            RegisterPacket(new SyncPacket());
+            RegisterPackets();
         }
 
-        /// <summary>
-        /// Registeres the specified packet for use.
-        /// </summary>
-        /// <param name="packet">Packet derived object to be registered.</param>
-        public void RegisterPacket(Packet packet)
+        private void RegisterPacket(Packet packet)
         {
-            if (packet == null) throw new Exception("Null Packet Exception!")
-            
-            _packets.Add(packet);
-            packet.SetPacketID(_packets.Count - 1);
+            Console.WriteLine("Registering packet: " + packet.ToString());
+            _registeredPackets.Add(packet);
+            packet.SetPacketID(_registeredPackets.Count - 1);
+        }
+
+        private void RegisterPackets()
+        {
+            foreach (var type in Assembly.GetEntryAssembly().GetTypes())
+            {
+                if (type.IsSubclassOf(typeof(Packet)))
+                {
+                    Packet packet = Activator.CreateInstance(type) as Packet;
+                    RegisterPacket(packet);
+                }
+            }
         }
 
         /// <summary>
@@ -43,7 +51,7 @@ namespace SharpNetty
         /// <returns></returns>
         public Packet GetPacket(int index)
         {
-            if (index > _packets.Count) throw new Exception("Invalid Packet ID!"); return _packets[index];
+            if (index > _registeredPackets.Count) throw new Exception("Invalid Packet ID!"); return _registeredPackets[index];
         }
 
         protected void BeginReceiving(Socket socket, int socketIndex)
@@ -85,7 +93,7 @@ namespace SharpNetty
                         packetIndex = packetBuffer.ReadShort();
                         int length = packetBuffer.ReadShort();
 
-                        execPacket = Activator.CreateInstance(_packets[packetIndex].GetType()) as Packet;
+                        execPacket = Activator.CreateInstance(_registeredPackets[packetIndex].GetType()) as Packet;
                         execPacket.GetPacketBuffer().FillBuffer(data);
                         execPacket.GetPacketBuffer().SetOffset(i + 4);
                         execPacket.Execute(this, socketIndex);
@@ -102,25 +110,25 @@ namespace SharpNetty
                         if (this.GetType() == typeof(NettyClient))
                         {
                             // Create a new reference of this object and cast it to NettyClient.
-                            var nettyClient = this.GetType() as NettyClient;
-                            
+                            var nettyClient = this as NettyClient;
+
                             // Invoke the SocketDisconnected method.
                             // nettyClient.SocketDisconnected();
-                            
+
                             // We've cleaned up everything here; there's no need to notify the end user.
                             return;
                         }
 
                         Console.WriteLine("We lost connection with: " + socket.RemoteEndPoint);
-                        
+
                         // Create a new reference of this object and cast it to NettyServer.
                         var nettyServer = this as NettyServer;
-                        
+
                         // Invoke the lost connection delegate.
                         if (nettyServer.Handle_LostConnection != null)
                             nettyServer.Handle_LostConnection.Invoke(socketIndex);
                     }
-                    else 
+                    else
                     {
                         // We're receiving an exception that we shouldn't handle internally...
                         // We should notify the end user.
@@ -130,6 +138,16 @@ namespace SharpNetty
             }
         }
 
+        private void SortMessageBuffer(List<Packet> messageBuffer)
+        {
+            messageBuffer.Sort(
+                delegate(Packet p1, Packet p2)
+                {
+                    return p1.GetPriority().CompareTo(p2.GetPriority());
+                }
+            );
+        }
+
         /// <summary>
         /// Sends a packet over the specified socket
         /// </summary>
@@ -137,56 +155,57 @@ namespace SharpNetty
         /// <param name="socket">Socket containing the remote connection information of the socket that the packet will be sent to.</param>
         protected void SendPacket(Packet packet, Socket socket, bool forceSend)
         {
-            
             Packet tmpPacket;
             byte[] data;
             PacketBuffer packetBuffer;
-            
+
             try
             {
                 // If the MessageBuffer is currently in the process of sending...
                 // Halt this packet until the task is complete.
                 while (_sendingPacket) ;
 
-                
                 // If the MessageBufferLength has reached its maximum capacity, or the packet's priority is that of
                 // Priority.High, or if forceSend is set to true, we need to process and send the MessageBuffer.
-                if (_messageBufferLength + packet.GetPacketBuffer().ReadBytes().Length > MAX_MESSAGE_LENGTH 
+                if (_messageBufferLength + packet.GetPacketBuffer().ReadBytes().Length > MAX_MESSAGE_LENGTH
                         || packet.GetPriority() == Packet.Priority.High || forceSend)
                 {
                     // We are currently processing and sending our MessageBuffer; therefore, we need to
                     // set _sendingPacket to true in order to maintain cross thread stability.
                     _sendingPacket = true;
-                    
+
                     // Add the passed packet into the MessageBuffer.
                     _messageBuffer.Add(packet);
-                    
+
                     // Increase the MessageBuffer's length by the packet's length.
                     _messageBufferLength += (short)packet.GetPacketBuffer().ReadBytes().Length;
-                    
+
                     // Create a new PacketBuffer object.
-                    PacketBuffer packetBuffer = new PacketBuffer();
+                    packetBuffer = new PacketBuffer();
 
                     // Loop through and sort the packets within our MesageBuffer based on: Priority and its Timestamp.
                     // This is based on the Bubble Sort Alg.
                     for (int i = _messageBuffer.Count - 1; i > 0; i++)
                     {
-                        if ((int)_messageBuffer[i].GetPriority() > (int)_messageBuffer[i - 1].GetPriority() 
-                            || ((int)_messageBuffer[i].GetTimeStamp() < (int)_messageBuffer[i - 1].GetTimeStamp() 
+                        if ((int)_messageBuffer[i].GetPriority() > (int)_messageBuffer[i - 1].GetPriority()
+                            || ((int)_messageBuffer[i].GetTimeStamp() < (int)_messageBuffer[i - 1].GetTimeStamp()
                                 & _messageBuffer[i].GetPriority() == _messageBuffer[i - 1].GetPriority()))
                         {
                             tmpPacket = _messageBuffer[i - 1];
                             _messageBuffer[i - 1] = _messageBuffer[i];
                             _messageBuffer[i] = tmpPacket;
-                            
+
                             // We need to restart the "Bubble" sort.
                             i = 0;
-                            
+
                             // Continue the loop at the beginning.
                             continue;
                         }
                     }
 
+                    SortMessageBuffer(_messageBuffer);
+
+                    packetBuffer = new PacketBuffer();
                     foreach (var mPacket in _messageBuffer)
                     {
                         packetBuffer.WriteShort((short)mPacket.GetPacketID());
