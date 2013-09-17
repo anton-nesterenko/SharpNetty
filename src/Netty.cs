@@ -27,9 +27,8 @@ namespace SharpNetty
 
         private void RegisterPacket(Packet packet)
         {
-            Console.WriteLine("Registering packet: " + packet.ToString());
+            Console.WriteLine("Registering packet: " + packet.ToString() + " - unique packet ID: " + packet.UniquePacketID);
             _registeredPackets.Add(packet);
-            packet.SetPacketID(_registeredPackets.Count - 1);
         }
 
         private void RegisterPackets()
@@ -94,8 +93,8 @@ namespace SharpNetty
                         int length = packetBuffer.ReadShort();
 
                         execPacket = Activator.CreateInstance(_registeredPackets[packetIndex].GetType()) as Packet;
-                        execPacket.GetPacketBuffer().FillBuffer(data);
-                        execPacket.GetPacketBuffer().SetOffset(i + 4);
+                        execPacket.PacketBuffer.FillBuffer(data);
+                        execPacket.PacketBuffer.SetOffset(i + 4);
                         execPacket.Execute(this, socketIndex);
                         i += length + 4;
                     }
@@ -143,7 +142,7 @@ namespace SharpNetty
             messageBuffer.Sort(
                 delegate(Packet p1, Packet p2)
                 {
-                    return p1.GetPriority().CompareTo(p2.GetPriority());
+                    return p1.PacketPriority.CompareTo(p2.PacketPriority);
                 }
             );
         }
@@ -167,8 +166,8 @@ namespace SharpNetty
 
                 // If the MessageBufferLength has reached its maximum capacity, or the packet's priority is that of
                 // Priority.High, or if forceSend is set to true, we need to process and send the MessageBuffer.
-                if (_messageBufferLength + packet.GetPacketBuffer().ReadBytes().Length > MAX_MESSAGE_LENGTH
-                        || packet.GetPriority() == Packet.Priority.High || forceSend)
+                if (_messageBufferLength + packet.PacketBuffer.ReadBytes().Length > MAX_MESSAGE_LENGTH
+                        || packet.PacketPriority == Packet.Priority.High || forceSend)
                 {
                     // We are currently processing and sending our MessageBuffer; therefore, we need to
                     // set _sendingPacket to true in order to maintain cross thread stability.
@@ -178,7 +177,7 @@ namespace SharpNetty
                     _messageBuffer.Add(packet);
 
                     // Increase the MessageBuffer's length by the packet's length.
-                    _messageBufferLength += (short)packet.GetPacketBuffer().ReadBytes().Length;
+                    _messageBufferLength += (short)packet.PacketBuffer.ReadBytes().Length;
 
                     // Create a new PacketBuffer object.
                     packetBuffer = new PacketBuffer();
@@ -187,9 +186,9 @@ namespace SharpNetty
                     // This is based on the Bubble Sort Alg.
                     for (int i = _messageBuffer.Count - 1; i > 0; i++)
                     {
-                        if ((int)_messageBuffer[i].GetPriority() > (int)_messageBuffer[i - 1].GetPriority()
-                            || ((int)_messageBuffer[i].GetTimeStamp() < (int)_messageBuffer[i - 1].GetTimeStamp()
-                                & _messageBuffer[i].GetPriority() == _messageBuffer[i - 1].GetPriority()))
+                        if ((int)_messageBuffer[i].PacketPriority > (int)_messageBuffer[i - 1].PacketPriority
+                            || ((int)_messageBuffer[i].TimeStamp < (int)_messageBuffer[i - 1].TimeStamp
+                                & _messageBuffer[i].PacketPriority == _messageBuffer[i - 1].PacketPriority))
                         {
                             tmpPacket = _messageBuffer[i - 1];
                             _messageBuffer[i - 1] = _messageBuffer[i];
@@ -208,10 +207,10 @@ namespace SharpNetty
                     packetBuffer = new PacketBuffer();
                     foreach (var mPacket in _messageBuffer)
                     {
-                        packetBuffer.WriteShort((short)mPacket.GetPacketID());
-                        packetBuffer.WriteShort((short)mPacket.GetPacketBuffer().ReadBytes().Length);
-                        packetBuffer.WriteBytes(mPacket.GetPacketBuffer().ReadBytes());
-                        mPacket.GetPacketBuffer().Flush();
+                        packetBuffer.WriteString(mPacket.UniquePacketID);
+                        packetBuffer.WriteShort((short)mPacket.PacketBuffer.ReadBytes().Length);
+                        packetBuffer.WriteBytes(mPacket.PacketBuffer.ReadBytes());
+                        mPacket.PacketBuffer.Flush();
                     }
 
                     data = packetBuffer.ReadBytes();
@@ -220,11 +219,11 @@ namespace SharpNetty
                     _messageBuffer.Clear();
                     _sendingPacket = false;
                 }
-                else if (packet.GetPriority() == Packet.Priority.None)
+                else if (packet.PacketPriority == Packet.Priority.None)
                 {
                     _messageBuffer.Add(packet);
                 }
-                else if (packet.GetPriority() == Packet.Priority.Normal)
+                else if (packet.PacketPriority == Packet.Priority.Normal)
                 {
                     new Thread(() => { Thread.Sleep(1000); SendPacket(packet, socket, true); }).Start();
                 }

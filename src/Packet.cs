@@ -14,48 +14,29 @@ namespace SharpNetty
 
         public Packet()
         {
-            SetPriority(Priority.Normal);
+            this.PacketPriority = Priority.Normal;
             _timeStamp = Environment.TickCount;
         }
 
         private Priority _priority;
 
-        public void SetPriority(Priority priority)
+        public Priority PacketPriority
         {
-            _priority = priority;
-        }
-
-        public Priority GetPriority()
-        {
-            return _priority;
+            get { return _priority; }
+            set { _priority = value; }
         }
 
         private int _timeStamp;
 
-        public int GetTimeStamp()
+        public int TimeStamp
         {
-            return _timeStamp;
+            get { return _timeStamp; }
         }
 
-        private int _packetID;
-
-        public int GetPacketID()
-        {
-            return _packetID;
-        }
-
-        public void SetPacketID(int value)
-        {
-            _packetID = value;
-        }
-
-        private readonly PacketBuffer _packetBuffer = new PacketBuffer();
-
-        public PacketBuffer GetPacketBuffer()
-        {
-            return _packetBuffer;
-        }
+        public readonly PacketBuffer PacketBuffer = new PacketBuffer();
 
         public abstract void Execute(Netty netty, int socketIndex);
+
+        public abstract string UniquePacketID { get; }
     }
 }

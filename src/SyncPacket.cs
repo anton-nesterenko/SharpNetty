@@ -14,19 +14,19 @@ namespace SharpNetty
 
         public void WriteData()
         {
-            SetPriority(Priority.High);
-            GetPacketBuffer().WriteInteger(_connectionID);
-            GetPacketBuffer().WriteLong(Environment.TickCount);
+            this.PacketPriority = Priority.High;
+            this.PacketBuffer.WriteInteger(_connectionID);
+            this.PacketBuffer.WriteLong(Environment.TickCount);
         }
 
         public override void Execute(Netty netty, int socketIndex)
         {
-            int connectionID = GetPacketBuffer().ReadInteger();
-            long value = GetPacketBuffer().ReadLong();
+            int connectionID = this.PacketBuffer.ReadInteger();
+            long value = this.PacketBuffer.ReadLong();
 
             if (netty.GetType() == typeof(NettyServer))
             {
-                long value2 = GetPacketBuffer().ReadLong();
+                long value2 = this.PacketBuffer.ReadLong();
 
                 NettyServer nettyServer = netty as NettyServer;
 
@@ -39,12 +39,20 @@ namespace SharpNetty
                 return;
             }
 
-            GetPacketBuffer().Flush();
-            GetPacketBuffer().WriteInteger(connectionID);
-            GetPacketBuffer().WriteLong(value);
-            GetPacketBuffer().WriteLong(Environment.TickCount);
+            this.PacketBuffer.Flush();
+            this.PacketBuffer.WriteInteger(connectionID);
+            this.PacketBuffer.WriteLong(value);
+            this.PacketBuffer.WriteLong(Environment.TickCount);
             NettyClient nettyClient = netty as NettyClient;
             nettyClient.SendPacket(this);
+        }
+
+        public override string UniquePacketID
+        {
+            get
+            {
+                return "SyncPacket";
+            }
         }
     }
 }
