@@ -9,27 +9,30 @@ namespace SharpNetty
     {
         public class Connection
         {
-            private Socket _socket;
-            private long _tickOffset;
+            private readonly Socket _socket;
+
+            public Socket Socket
+            {
+                get { return _socket; }
+            }
 
             public Connection(Socket socket)
             {
                 _socket = socket;
             }
 
-            public Socket GetSocket()
+            public void SendPacket(Packet packet)
             {
-                return _socket;
-            }
+                byte[] data;
 
-            public void SetTickOffset(long value)
-            {
-                _tickOffset = value;
-            }
+                PacketBuffer packetBuffer = new PacketBuffer();
+                packetBuffer.WriteString(packet.PacketID);
+                packetBuffer.WriteBytes(packet.PacketBuffer.ReadBytes());
 
-            public long GetTickOffset()
-            {
-                return _tickOffset;
+                data = packetBuffer.ReadBytes();
+
+                _socket.Send(BitConverter.GetBytes((short)data.Length));
+                _socket.Send(data);
             }
         }
 
@@ -42,6 +45,11 @@ namespace SharpNetty
         public HandleConnectionChange Handle_NewConnection;
         public HandleConnectionChange Handle_LostConnection;
 
+        public NettyServer(bool noDelay = false)
+            : base(noDelay)
+        {
+        }
+
         /// <summary>
         /// Returns the socket at the specified index.
         /// </summary>
@@ -49,12 +57,20 @@ namespace SharpNetty
         /// <returns></returns>
         public Connection GetConnection(int index)
         {
-            if (_connections[index] == null || _connections[index].GetSocket() == null)
+            if (_connections[index] == null || _connections[index].Socket == null)
             {
                 throw new Exception("Invaid Socket Request!");
             }
 
             return _connections[index];
+        }
+
+        public void RemoveConnection(int index)
+        {
+            if (_connections[index].Socket.Connected)
+                _connections[index].Socket.Disconnect(false);
+
+            _connections[index] = null;
         }
 
         /// <summary>
@@ -107,12 +123,8 @@ namespace SharpNetty
                         if (_connections[i] == null)
                         {
                             _connections[i] = new Connection(incomingSocket);
-                            _connections[i].GetSocket().NoDelay = true;
 
-                            SyncPacket syncPacket = new SyncPacket();
-                            syncPacket.SetConnectionID(i);
-                            syncPacket.WriteData();
-                            SendPacket(syncPacket, i, false);
+                            _connections[i].Socket.NoDelay = _mainSocket.NoDelay;
 
                             index = i;
                             break;
@@ -138,28 +150,14 @@ namespace SharpNetty
         }
 
         /// <summary>
-        /// Broadcasts a packet to all current, established connections.
-        /// </summary>
-        /// <param name="packet">Socket ID of the desired remote socket that the packet will be sent to.</param>
-        /// <param name="forceSend">Force the current Message Buffer to be sent and flushed.</param>
-        public void BroadCastPacket(Packet packet, bool forceSend = false)
-        {
-            for (int i = 0; i < _connections.Length; i++)
-            {
-                if (_connections[i] != null)
-                    SendPacket(packet, _connections[i].GetSocket(), false);
-            }
-        }
-
-        /// <summary>
         /// Sends a packet to the designated remote socket connnection.
         /// </summary>
         /// <param name="packet">Packet object containing the packet's unique information</param>
-        /// <param name="socketID">Socket ID of the desired remote socket that the packet will be sent to.</param>
+        /// <param name="socketIndex">Socket ID of the desired remote socket that the packet will be sent to.</param>
         /// <param name="forceSend">Force the current Message Buffer to be sent and flushed.</param>
-        public void SendPacket(Packet packet, int socketID, bool forceSend = false)
+        public void SendPacket(Packet packet, int socketIndex)
         {
-            base.SendPacket(packet, _connections[socketID].GetSocket(), forceSend);
+            this.GetConnection(socketIndex).SendPacket(packet);
         }
     }
 }

@@ -5,38 +5,30 @@ namespace SharpNetty
 {
     public abstract class Packet
     {
-        public enum Priority
-        {
-            None,
-            Normal,
-            High
-        }
-
         public Packet()
         {
-            this.PacketPriority = Priority.Normal;
             _timeStamp = Environment.TickCount;
-        }
-
-        private Priority _priority;
-
-        public Priority PacketPriority
-        {
-            get { return _priority; }
-            set { _priority = value; }
         }
 
         private int _timeStamp;
 
-        public int TimeStamp
+        public int GetTimeStamp()
         {
-            get { return _timeStamp; }
+            return _timeStamp;
         }
 
-        public readonly PacketBuffer PacketBuffer = new PacketBuffer();
+        private PacketBuffer _packetBuffer = new PacketBuffer();
+
+        public PacketBuffer PacketBuffer
+        {
+            get { return _packetBuffer; }
+        }
 
         public abstract void Execute(Netty netty, int socketIndex);
 
-        public abstract string UniquePacketID { get; }
+        public abstract string PacketID
+        {
+            get;
+        }
     }
 }

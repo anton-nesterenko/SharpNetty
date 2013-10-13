@@ -8,6 +8,15 @@ namespace SharpNetty
 {
     public sealed class NettyClient : Netty
     {
+        public delegate void Handle_ConnectionChange();
+
+        public Handle_ConnectionChange Handle_ConnectionLost;
+
+        public NettyClient(bool noDelay = false)
+            : base(noDelay)
+        {
+        }
+
         /// <summary>
         /// Establishes a connection with a server at the specified IP & Port.
         /// </summary>
@@ -47,9 +56,18 @@ namespace SharpNetty
         /// Sends a packet over the main socket
         /// </summary>
         /// <param name="packetBuffer">PackBuffer containing the packet's information</param>
-        public void SendPacket(Packet packet, bool forceSend = false)
+        public void SendPacket(Packet packet)
         {
-            SendPacket(packet, _mainSocket, forceSend);
+            byte[] data;
+
+            PacketBuffer packetBuffer = new PacketBuffer();
+            packetBuffer.WriteString(packet.PacketID);
+            packetBuffer.WriteBytes(packet.PacketBuffer.ReadBytes());
+
+            data = packetBuffer.ReadBytes();
+
+            _mainSocket.Send(BitConverter.GetBytes((short)data.Length));
+            _mainSocket.Send(data);
         }
     }
 }

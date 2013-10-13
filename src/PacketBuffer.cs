@@ -240,6 +240,16 @@ namespace SharpNetty
             _offset = _buffer.Length;
         }
 
+        public void DecompressPacket(CompressionLevel compressionLevel)
+        {
+            MemoryStream stream = new MemoryStream();
+            GZipStream gStream = new GZipStream(stream, compressionLevel);
+            gStream.Read(_buffer, 0, _buffer.Length);
+            _buffer = stream.ToArray();
+            gStream.Close();
+            stream.Close();
+        }
+
         private void Resize(int newSize)
         {
             if (newSize < _buffer.Length) return;
