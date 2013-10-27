@@ -108,9 +108,9 @@ namespace SharpNetty
                     execPacket.Execute(this, socketIndex);
                 }
 
-                catch (Exception ex)
+                catch (SocketException ex)
                 {
-                    if (ex is SocketException || ex is ObjectDisposedException)
+                    if (ex is SocketException)
                     {
                         // If this is our client's incoming data listener,
                         // we should just allow the socket to disconnect, and then notify the deriving class

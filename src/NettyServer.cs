@@ -9,11 +9,12 @@ namespace SharpNetty
     {
         public class Connection
         {
-            private readonly Socket _socket;
+            private Socket _socket;
 
             public Socket Socket
             {
                 get { return _socket; }
+                internal set { _socket = value; }
             }
 
             public Connection(Socket socket)
@@ -68,8 +69,14 @@ namespace SharpNetty
         public void RemoveConnection(int index)
         {
             if (_connections[index].Socket.Connected)
+            {
                 _connections[index].Socket.Disconnect(false);
+            }
 
+            if (this.Handle_LostConnection != null)
+                this.Handle_LostConnection(index);
+
+            _connections[index].Socket = null;
             _connections[index] = null;
         }
 

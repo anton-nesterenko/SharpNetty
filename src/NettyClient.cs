@@ -17,6 +17,8 @@ namespace SharpNetty
         {
         }
 
+        public bool Connected { get { return _mainSocket.Connected; } }
+
         /// <summary>
         /// Establishes a connection with a server at the specified IP & Port.
         /// </summary>

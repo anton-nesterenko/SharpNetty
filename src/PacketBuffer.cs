@@ -58,6 +58,8 @@ namespace SharpNetty
         /// <param name="value">Byte value to write into the buffer.</param>
         public void WriteByte(byte value)
         {
+            Resize(_offset + 1);
+
             _buffer[_offset++] = value;
         }
 
@@ -67,7 +69,7 @@ namespace SharpNetty
         public void WriteLong(long value)
         {
             byte[] tmp = BitConverter.GetBytes(value);
-            Resize(_buffer.Length + tmp.Length);
+            Resize(_offset + tmp.Length);
 
             for (int i = 0; i < 8; i++)
             {
@@ -81,7 +83,7 @@ namespace SharpNetty
         public void WriteShort(short value)
         {
             byte[] tmp = BitConverter.GetBytes(value);
-            Resize(_buffer.Length + tmp.Length);
+            Resize(_offset + tmp.Length);
 
             for (int i = 0; i < 2; i++)
             {
@@ -96,7 +98,7 @@ namespace SharpNetty
         {
             byte[] tmp = ASCIIEncoding.ASCII.GetBytes(value);
             WriteByte((byte)tmp.Length);
-            Resize(_buffer.Length + tmp.Length);
+            Resize(_offset + tmp.Length);
 
             for (int i = 0; i < tmp.Length; i++)
             {
@@ -110,7 +112,7 @@ namespace SharpNetty
         public void WriteInteger(int value)
         {
             byte[] tmp = BitConverter.GetBytes(value);
-            Resize(_buffer.Length + tmp.Length);
+            Resize(_offset + tmp.Length);
 
             for (int i = 0; i < 4; i++)
             {
@@ -156,7 +158,7 @@ namespace SharpNetty
 
         public void WriteBytes(byte[] bytes, int destOffset)
         {
-            Resize(_buffer.Length + bytes.Length);
+            Resize(_offset + bytes.Length);
 
             for (int i = 0; i < bytes.Length; i++)
                 _buffer[destOffset++] = bytes[i];
