@@ -10,6 +10,7 @@ namespace SharpNetty
         public class Connection
         {
             private Socket _socket;
+            private NettyServer _nettyServer;
 
             public Socket Socket
             {
@@ -17,23 +18,15 @@ namespace SharpNetty
                 internal set { _socket = value; }
             }
 
-            public Connection(Socket socket)
+            public Connection(Socket socket, NettyServer nettyServer)
             {
                 _socket = socket;
+                _nettyServer = nettyServer;
             }
 
             public void SendPacket(Packet packet)
             {
-                byte[] data;
-
-                PacketBuffer packetBuffer = new PacketBuffer();
-                packetBuffer.WriteString(packet.PacketID);
-                packetBuffer.WriteBytes(packet.PacketBuffer.ReadBytes());
-
-                data = packetBuffer.ReadBytes();
-
-                _socket.Send(BitConverter.GetBytes((short)data.Length));
-                _socket.Send(data);
+                _nettyServer.SendPacket(packet, _socket);
             }
         }
 
@@ -129,7 +122,7 @@ namespace SharpNetty
                     {
                         if (_connections[i] == null)
                         {
-                            _connections[i] = new Connection(incomingSocket);
+                            _connections[i] = new Connection(incomingSocket, this);
 
                             _connections[i].Socket.NoDelay = _mainSocket.NoDelay;
 
@@ -164,7 +157,12 @@ namespace SharpNetty
         /// <param name="forceSend">Force the current Message Buffer to be sent and flushed.</param>
         public void SendPacket(Packet packet, int socketIndex)
         {
-            this.GetConnection(socketIndex).SendPacket(packet);
+            this.SendPacket(packet, this.GetConnection(socketIndex).Socket);
+        }
+
+        internal void SendPacket(Packet packet, Socket socket)
+        {
+            this.SendPacket(socket, packet);
         }
     }
 }

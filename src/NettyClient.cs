@@ -60,16 +60,7 @@ namespace SharpNetty
         /// <param name="packetBuffer">PackBuffer containing the packet's information</param>
         public void SendPacket(Packet packet)
         {
-            byte[] data;
-
-            PacketBuffer packetBuffer = new PacketBuffer();
-            packetBuffer.WriteString(packet.PacketID);
-            packetBuffer.WriteBytes(packet.PacketBuffer.ReadBytes());
-
-            data = packetBuffer.ReadBytes();
-
-            _mainSocket.Send(BitConverter.GetBytes((short)data.Length));
-            _mainSocket.Send(data);
+            this.SendPacket(_mainSocket, packet);
         }
     }
 }

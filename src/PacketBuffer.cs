@@ -120,6 +120,14 @@ namespace SharpNetty
             }
         }
 
+        public void WriteBool(bool value)
+        {
+            if (value)
+                this.WriteByte(1);
+            else
+                this.WriteByte(0);
+        }
+
         /// <summary>
         /// Grabs the buffer for usage.
         /// </summary>
@@ -177,7 +185,9 @@ namespace SharpNetty
         /// </summary>
         public short ReadShort()
         {
-            return (short)(_buffer[_offset++] + _buffer[_offset++]);
+            short value = BitConverter.ToInt16(_buffer, _offset);
+            _offset += 2;
+            return value;
         }
 
         /// <summary>
@@ -185,7 +195,9 @@ namespace SharpNetty
         /// </summary>
         public int ReadInteger()
         {
-            return _buffer[_offset++] + _buffer[_offset++] + _buffer[_offset++] + _buffer[_offset++];
+            int value = BitConverter.ToInt32(_buffer, _offset);
+            _offset += 4;
+            return value;
         }
 
         /// <summary>
@@ -217,14 +229,16 @@ namespace SharpNetty
         /// </summary>
         public long ReadLong()
         {
-            long value = 0;
+            long value = BitConverter.ToInt64(_buffer, _offset);
 
-            for (int i = 0; i < 8; i++)
-            {
-                value += (long)_buffer[_offset++];
-            }
+            _offset += 8;
 
             return value;
+        }
+
+        public bool ReadBool()
+        {
+            return (this.ReadByte() == 1);
         }
 
         /// <summary>
