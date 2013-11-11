@@ -212,12 +212,12 @@ namespace SharpNetty
             int sent = socket.Send(packetHeader);
 
             while (sent < packetHeader.Length)
-                socket.Send(packetHeader, sent, packetHeader.Length - sent, SocketFlags.None);
+                sent += socket.Send(packetHeader, sent, packetHeader.Length - sent, SocketFlags.None);
 
             sent = socket.Send(data);
 
             while (sent < data.Length)
-                socket.Send(data, sent, data.Length - sent, SocketFlags.None);
+                sent += socket.Send(data, sent, data.Length - sent, SocketFlags.None);
         }
     }
 }

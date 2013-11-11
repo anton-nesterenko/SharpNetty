@@ -18,6 +18,21 @@ namespace SharpNetty
                 internal set { _socket = value; }
             }
 
+            public bool Connected
+            {
+                get
+                {
+                    // Credits to http://stackoverflow.com/questions/2661764/how-to-check-if-a-socket-is-connected-disconnected-in-c
+                    // for this check.
+                    bool part1 = _socket.Poll(1000, SelectMode.SelectRead);
+                    bool part2 = (_socket.Available == 0);
+                    if (part1 & part2)
+                        return false;
+                    else
+                        return true;
+                }
+            }
+
             public Connection(Socket socket, NettyServer nettyServer)
             {
                 _socket = socket;
@@ -102,7 +117,7 @@ namespace SharpNetty
         {
             _connections = new Connection[maximumConnections];
 
-            new Thread(() =>
+            Thread listenerThread = new Thread(() =>
             {
                 Socket incomingSocket;
                 int index = -1;
@@ -135,9 +150,14 @@ namespace SharpNetty
 
                     if (Handle_NewConnection != null) Handle_NewConnection.Invoke(index);
 
-                    new Thread(x => BeginReceiving(incomingSocket, index)).Start();
+                    Thread recThread = new Thread(x => BeginReceiving(incomingSocket, index));
+                    recThread.Name = incomingSocket.RemoteEndPoint + ": incoming data thread.";
+                    recThread.Start();
                 }
-            }).Start();
+            });
+
+            listenerThread.Name = "NettyServer Incoming Connection Thread";
+            listenerThread.Start();
         }
 
         /// <summary>
