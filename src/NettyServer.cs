@@ -74,6 +74,10 @@ namespace SharpNetty
             return _connections[index];
         }
 
+        /// <summary>
+        /// Removes a connection at the specified index.
+        /// </summary>
+        /// <param name="index">Index (unique id) of the connected to be removed.</param>
         public void RemoveConnection(int index)
         {
             if (_connections[index].Socket.Connected)
@@ -104,6 +108,9 @@ namespace SharpNetty
             _socketAddress = new IPEndPoint(IPAddress.Parse(ip), port);
         }
 
+        /// <summary>
+        /// Halts the server.
+        /// </summary>
         public void StopListening()
         {
             _mainSocket.Shutdown(SocketShutdown.Receive);
@@ -172,12 +179,22 @@ namespace SharpNetty
         /// <summary>
         /// Sends a packet to the designated remote socket connnection.
         /// </summary>
-        /// <param name="packet">Packet object containing the packet's unique information</param>
+        /// <param name="packet">Object containing the packet's unique information</param>
         /// <param name="socketIndex">Socket ID of the desired remote socket that the packet will be sent to.</param>
         /// <param name="forceSend">Force the current Message Buffer to be sent and flushed.</param>
         public void SendPacket(Packet packet, int socketIndex)
         {
             this.SendPacket(packet, this.GetConnection(socketIndex).Socket);
+        }
+
+        /// <summary>
+        /// Sends a packet to every active connection.
+        /// </summary>
+        /// <param name="packet">Object containing the packet's unique information</param>
+        public void BroadcastPacket(Packet packet)
+        {
+            foreach (var connection in _connections)
+                this.SendPacket(packet, connection.Socket);
         }
 
         internal void SendPacket(Packet packet, Socket socket)

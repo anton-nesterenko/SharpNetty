@@ -25,6 +25,10 @@ namespace SharpNetty
             WriteShort(packetIndex);
         }
 
+        /// <summary>
+        /// Get the current read/write offset in the buffer.
+        /// </summary>
+        /// <returns>Int value that represents the read/write offset in the buffer.</returns>
         public int GetOffset()
         {
             return _offset;
@@ -36,6 +40,10 @@ namespace SharpNetty
             PreAllocate(2);
         }
 
+        /// <summary>
+        /// Preallocates the buffer's size to a specified value.
+        /// </summary>
+        /// <param name="size">Value that specifies the size of the buffer.</param>
         public void PreAllocate(int size)
         {
             _buffer = new byte[size];
@@ -55,7 +63,7 @@ namespace SharpNetty
         /// <summary>
         /// Writes a byte into the buffer.
         /// </summary>
-        /// <param name="value">Byte value to write into the buffer.</param>
+        /// <param name="value">Byte value to be written into the buffer.</param>
         public void WriteByte(byte value)
         {
             Resize(_offset + 1);
@@ -66,6 +74,7 @@ namespace SharpNetty
         /// <summary>
         /// Writes a 64 bit integer into the buffer.
         /// </summary>
+        /// <param name="value">Int-64 value to be written into the buffer.</param>
         public void WriteLong(long value)
         {
             byte[] tmp = BitConverter.GetBytes(value);
@@ -80,6 +89,7 @@ namespace SharpNetty
         /// <summary>
         /// Writes a 16 bit integer into the buffer.
         /// </summary>
+        /// <param name="value">Int-16 value to be written into the buffer.</param>
         public void WriteShort(short value)
         {
             byte[] tmp = BitConverter.GetBytes(value);
@@ -94,6 +104,7 @@ namespace SharpNetty
         /// <summary>
         /// Writes a string into the buffer.
         /// </summary>
+        /// <param name="value">String value to be written into the buffer.</param>
         public void WriteString(string value)
         {
             byte[] tmp = ASCIIEncoding.ASCII.GetBytes(value);
@@ -109,6 +120,7 @@ namespace SharpNetty
         /// <summary>
         /// Writes a 32 bit integer into the buffer
         /// </summary>
+        /// <param name="value">Int-32 value to be written into the buffer.</param>
         public void WriteInteger(int value)
         {
             byte[] tmp = BitConverter.GetBytes(value);
@@ -119,6 +131,11 @@ namespace SharpNetty
                 _buffer[_offset++] = tmp[i];
             }
         }
+
+        /// <summary>
+        /// Writes a bool into the buffer.
+        /// </summary>
+        /// <param name="value">Boolean value to be written into the buffer.</param>
 
         public void WriteBool(bool value)
         {

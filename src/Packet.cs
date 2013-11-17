@@ -26,6 +26,9 @@ namespace SharpNetty
 
         public abstract void Execute(Netty netty, int socketIndex);
 
+        /// <summary>
+        /// Specifies the unique identity for this packet.
+        /// </summary>
         public abstract string PacketID
         {
             get;

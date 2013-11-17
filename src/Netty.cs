@@ -29,6 +29,10 @@ namespace SharpNetty
             RegisterPackets();
         }
 
+        /// <summary>
+        /// Registeres a packet for later use.
+        /// </summary>
+        /// <param name="packet">Packet to be registered.</param>
         private void RegisterPacket(Packet packet)
         {
             // Output the details of the packet that we're registering.
@@ -103,7 +107,7 @@ namespace SharpNetty
 
                     // Set the current read to 0.
                     curRead = 0;
-                    // Get the packet length (16 bit integer).
+                    // Get the packet length (32 bit integer).
                     pLength = BitConverter.ToInt32(data, 0);
                     // Set the data (byte-buffer) to the size of the packet -- determined by pLength.
                     data = new byte[pLength];
