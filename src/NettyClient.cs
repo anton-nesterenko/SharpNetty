@@ -57,7 +57,6 @@ namespace SharpNetty
         /// <summary>
         /// Sends a packet over the main socket
         /// </summary>
-        /// <param name="packetBuffer">PackBuffer containing the packet's information</param>
         public void SendPacket(Packet packet)
         {
             this.SendPacket(_mainSocket, packet);

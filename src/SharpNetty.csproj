@@ -48,7 +48,7 @@
     <Compile Include="NettyClient.cs" />
     <Compile Include="NettyServer.cs" />
     <Compile Include="Packet.cs" />
-    <Compile Include="PacketBuffer.cs" />
+    <Compile Include="DataBuffer.cs" />
     <Compile Include="Netty.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

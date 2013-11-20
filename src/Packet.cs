@@ -17,11 +17,11 @@ namespace SharpNetty
             return _timeStamp;
         }
 
-        private PacketBuffer _packetBuffer = new PacketBuffer();
+        private DataBuffer _dataBuffer = new DataBuffer();
 
-        public PacketBuffer PacketBuffer
+        public DataBuffer DataBuffer
         {
-            get { return _packetBuffer; }
+            get { return _dataBuffer; }
         }
 
         public abstract void Execute(Netty netty, int socketIndex);

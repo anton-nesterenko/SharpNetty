@@ -5,7 +5,7 @@ using System.Text;
 
 namespace SharpNetty
 {
-    public sealed class PacketBuffer
+    public sealed class DataBuffer
     {
         // Our packet buffer, holds the assembly of bytes.
         private byte[] _buffer;
@@ -17,7 +17,7 @@ namespace SharpNetty
         ///
         /// </summary>
         /// <param name="packetIndex">Index of the binded packet located on the remote machine</param>
-        public PacketBuffer(short packetIndex)
+        public DataBuffer(short packetIndex)
         {
             // Always preallocate 2 bytes by default.
             PreAllocate(2);
@@ -34,7 +34,7 @@ namespace SharpNetty
             return _offset;
         }
 
-        public PacketBuffer()
+        public DataBuffer()
         {
             // Always preallocate 2 bytes by default.
             PreAllocate(2);
@@ -171,16 +171,6 @@ namespace SharpNetty
             _offset = 0;
         }
 
-        //public int WriteBytes(byte[] bytes, int srcOffset, int length)
-        //{
-        //    Resize(_buffer.Length + length);
-
-        //    for (int i = 0; i < length; i++)
-        //        _buffer[_offset++] = bytes[srcOffset++];
-
-        //    return _buffer.Length;
-        //}
-
         public void WriteBytes(byte[] bytes, int destOffset)
         {
             Resize(_offset + bytes.Length);
@@ -191,7 +181,7 @@ namespace SharpNetty
 
         public void WriteBytes(byte[] bytes)
         {
-            Resize(_buffer.Length + bytes.Length);
+            Resize(_offset + bytes.Length);
 
             for (int i = 0; i < bytes.Length; i++)
                 _buffer[_offset++] = bytes[i];

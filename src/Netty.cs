@@ -79,7 +79,7 @@ namespace SharpNetty
             int pLength;
             int curRead;
             byte[] data;
-            PacketBuffer packetBuffer;
+            DataBuffer dataBuffer;
             Packet execPacket;
             string packetID;
             int readOffset;
@@ -95,8 +95,8 @@ namespace SharpNetty
                     curRead = 0;
                     // Stores the bytes that we have read from the socket.
                     data = new byte[pLength];
-                    // Stores our PacketBuffer instance.
-                    packetBuffer = new PacketBuffer();
+                    // Stores our DataBuffer instance.
+                    dataBuffer = new DataBuffer();
 
                     // Attempt to read from the socket.
                     curRead = socket.Receive(data, 0, pLength, SocketFlags.None);
@@ -119,11 +119,11 @@ namespace SharpNetty
                     while (curRead < pLength)
                         curRead += socket.Receive(data, curRead, pLength - curRead, SocketFlags.None);
 
-                    // Fill our PacketBuffer.
-                    packetBuffer.FillBuffer(data);
+                    // Fill our DataBuffer.
+                    dataBuffer.FillBuffer(data);
 
                     // Get the unique packetID.
-                    packetID = packetBuffer.ReadString();
+                    packetID = dataBuffer.ReadString();
 
                     // Create a new Packet instance by finding the unique packet in our registered packets by using the packetID.
                     Packet packet =
@@ -133,12 +133,12 @@ namespace SharpNetty
 
                     // Create a new instance of Packet based on the registered packet that matched our unique packet id.
                     execPacket = Activator.CreateInstance(packet.GetType()) as Packet;
-                    // Fill the packet's PacketBuffer.
-                    execPacket.PacketBuffer.FillBuffer(data);
-                    // Offset the PacketBuffer read offset (this is due to the fact that we've read the Packet-ID string, and we don't want the user to have to deal with this being left over).
+                    // Fill the packet's DataBuffer.
+                    execPacket.DataBuffer.FillBuffer(data);
+                    // Offset the DataBuffer read offset (this is due to the fact that we've read the Packet-ID string, and we don't want the user to have to deal with this being left over).
                     readOffset = System.Text.ASCIIEncoding.ASCII.GetBytes(packetID).Length + 1;
-                    // Set the PacketBuffer's offset to the value of readOffset.
-                    execPacket.PacketBuffer.SetOffset(readOffset);
+                    // Set the DataBuffer's offset to the value of readOffset.
+                    execPacket.DataBuffer.SetOffset(readOffset);
                     // Execute the packet.
                     execPacket.Execute(this, socketIndex);
                 }
@@ -205,11 +205,11 @@ namespace SharpNetty
 
         protected void SendPacket(Socket socket, Packet packet)
         {
-            PacketBuffer packetBuffer = new PacketBuffer();
-            packetBuffer.WriteString(packet.PacketID);
-            packetBuffer.WriteBytes(packet.PacketBuffer.ReadBytes());
+            DataBuffer dataBuffer = new DataBuffer();
+            dataBuffer.WriteString(packet.PacketID);
+            dataBuffer.WriteBytes(packet.DataBuffer.ReadBytes());
 
-            byte[] data = packetBuffer.ReadBytes();
+            byte[] data = dataBuffer.ReadBytes();
 
             byte[] packetHeader = BitConverter.GetBytes(data.Length);
 
