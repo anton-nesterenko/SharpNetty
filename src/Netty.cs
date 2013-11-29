@@ -18,15 +18,38 @@ namespace SharpNetty
             // Create a new Generic List instance which will store our Registered Packets; assign this new instance to the variable _registeredPackets.
             _registeredPackets = new List<Packet>();
 
+            // Invoke the method which will register our packets.
+            RegisterPackets();
+
             // Create a new instance of the class Socket; assign this new instance to the variable _mainSocket.
             // We're using a InterNetwork, TCP, Stream Based connection.
             _mainSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             // Disable Nagle's Algo. depedending on the value of noDelay (default false).
             _mainSocket.NoDelay = noDelay;
+        }
 
-            // Invoke the method which will register our packets.
-            RegisterPackets();
+        protected bool GetIsConnected(Socket socket)
+        {
+            try
+            {
+                bool part1 = socket.Poll(1000, SelectMode.SelectRead);
+                bool part2 = (socket.Available == 0);
+                if (part1 && part2)
+                {
+                    return false;
+                }
+                else
+                    return true;
+            }
+            catch (NullReferenceException)
+            {
+                return false;
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -44,6 +67,8 @@ namespace SharpNetty
 
         private void RegisterPackets()
         {
+            List<int> usedPacketIds = new List<int>();
+
             // Loop through the assembly that is using this library.
             // Find each Class that extends the abstract class Packet, and register the classes that we find.
             foreach (var type in Assembly.GetEntryAssembly().GetTypes())
@@ -54,10 +79,17 @@ namespace SharpNetty
                     // Create a new instance of Packet based on type.
                     Packet packet = Activator.CreateInstance(type) as Packet;
 
+                    if (usedPacketIds.Contains(packet.PacketID))
+                        throw new Exception(packet.ToString() + " is using an existing packet identifier!");
+
                     // Register the new packet.
                     RegisterPacket(packet);
+
+                    usedPacketIds.Add(packet.PacketID);
                 }
             }
+
+            usedPacketIds.Clear();
         }
 
         /// <summary>
@@ -81,11 +113,10 @@ namespace SharpNetty
             byte[] data;
             DataBuffer dataBuffer;
             Packet execPacket;
-            string packetID;
-            int readOffset;
+            int packetID;
 
             // Continue the attempts to receive data so long as the connection is open.
-            while (socket.Connected)
+            while (this.GetIsConnected(socket))
             {
                 try
                 {
@@ -95,8 +126,6 @@ namespace SharpNetty
                     curRead = 0;
                     // Stores the bytes that we have read from the socket.
                     data = new byte[pLength];
-                    // Stores our DataBuffer instance.
-                    dataBuffer = new DataBuffer();
 
                     // Attempt to read from the socket.
                     curRead = socket.Receive(data, 0, pLength, SocketFlags.None);
@@ -119,11 +148,13 @@ namespace SharpNetty
                     while (curRead < pLength)
                         curRead += socket.Receive(data, curRead, pLength - curRead, SocketFlags.None);
 
+                    dataBuffer = new DataBuffer();
+
                     // Fill our DataBuffer.
                     dataBuffer.FillBuffer(data);
 
                     // Get the unique packetID.
-                    packetID = dataBuffer.ReadString();
+                    packetID = dataBuffer.ReadInteger();
 
                     // Create a new Packet instance by finding the unique packet in our registered packets by using the packetID.
                     Packet packet =
@@ -135,93 +166,88 @@ namespace SharpNetty
                     execPacket = Activator.CreateInstance(packet.GetType()) as Packet;
                     // Fill the packet's DataBuffer.
                     execPacket.DataBuffer.FillBuffer(data);
-                    // Offset the DataBuffer read offset (this is due to the fact that we've read the Packet-ID string, and we don't want the user to have to deal with this being left over).
-                    readOffset = System.Text.ASCIIEncoding.ASCII.GetBytes(packetID).Length + 1;
                     // Set the DataBuffer's offset to the value of readOffset.
-                    execPacket.DataBuffer.SetOffset(readOffset);
+                    execPacket.DataBuffer.SetOffset(4);
                     // Execute the packet.
                     execPacket.Execute(this, socketIndex);
                 }
 
-                catch (SocketException)
-                {
-                    // If this is our client's incoming data listener,
-                    // we should just allow the socket to disconnect, and then notify the deriving class
-                    // that the socket has disconnected!
-                    if (this.GetType() == typeof(NettyClient))
-                    {
-                        // Create a new reference of this object and cast it to NettyClient.
-                        var nettyClient = this as NettyClient;
-
-                        // Invoke the SocketDisconnected method.
-                        nettyClient.Handle_ConnectionLost.Invoke();
-
-                        // We've cleaned up everything here; there's no need to notify the end user.
-                        return;
-                    }
-
-                    Console.WriteLine("We lost connection with: " + socket.RemoteEndPoint);
-
-                    // Create a new reference of this object and cast it to NettyServer.
-                    var nettyServer = this as NettyServer;
-
-                    // Invoke the lost connection delegate.
-                    if (nettyServer.Handle_LostConnection != null)
-                        nettyServer.Handle_LostConnection.Invoke(socketIndex);
-
-                    nettyServer.RemoveConnection(socketIndex);
-                }
-
                 catch (ObjectDisposedException)
                 {
-                    // If this is our client's incoming data listener,
-                    // we should just allow the socket to disconnect, and then notify the deriving class
-                    // that the socket has disconnected!
-                    if (this.GetType() == typeof(NettyClient))
-                    {
-                        // Create a new reference of this object and cast it to NettyClient.
-                        var nettyClient = this as NettyClient;
+                    break;
+                }
 
-                        // Invoke the SocketDisconnected method.
-                        nettyClient.Handle_ConnectionLost.Invoke();
-
-                        // We've cleaned up everything here; there's no need to notify the end user.
-                        return;
-                    }
-
-                    Console.WriteLine("We lost connection with: " + socket.RemoteEndPoint);
-
-                    // Create a new reference of this object and cast it to NettyServer.
-                    var nettyServer = this as NettyServer;
-
-                    // Invoke the lost connection delegate.
-                    if (nettyServer.Handle_LostConnection != null)
-                        nettyServer.Handle_LostConnection.Invoke(socketIndex);
-
-                    nettyServer.RemoveConnection(socketIndex);
+                catch (SocketException)
+                {
+                    break;
                 }
             }
+
+            this.HandleDisconnectedSocket(socket);
+        }
+
+        protected void HandleDisconnectedSocket(Socket socket)
+        {
+            // If this is our client's incoming data listener,
+            // we should just allow the socket to disconnect, and then notify the deriving class
+            // that the socket has disconnected!
+            if (this.GetType() == typeof(NettyClient))
+            {
+                // Create a new reference of this object and cast it to NettyClient.
+                var nettyClient = this as NettyClient;
+
+                // Invoke the SocketDisconnected method.
+                if (nettyClient.Handle_ConnectionLost != null)
+                    nettyClient.Handle_ConnectionLost.Invoke();
+
+                bool noDelay = _mainSocket.NoDelay;
+                _mainSocket.Dispose();
+                _mainSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                _mainSocket.NoDelay = noDelay;
+
+                // We've cleaned up everything here; there's no need to notify the end user.
+                return;
+            }
+
+            // Create a new reference of this object and cast it to NettyServer.
+            var nettyServer = this as NettyServer;
+
+            int socketIndex = nettyServer.GetConnectionIndex(socket);
+
+            nettyServer.RemoveConnection(socketIndex);
         }
 
         protected void SendPacket(Socket socket, Packet packet)
         {
-            DataBuffer dataBuffer = new DataBuffer();
-            dataBuffer.WriteString(packet.PacketID);
-            dataBuffer.WriteBytes(packet.DataBuffer.ReadBytes());
+            try
+            {
+                DataBuffer dataBuffer = new DataBuffer();
+                dataBuffer.WriteInteger(packet.PacketID);
+                dataBuffer.WriteBytes(packet.DataBuffer.ReadBytes());
 
-            byte[] data = dataBuffer.ReadBytes();
+                byte[] data = dataBuffer.ReadBytes();
 
-            byte[] packetHeader = BitConverter.GetBytes(data.Length);
+                byte[] packetHeader = BitConverter.GetBytes(data.Length);
 
-            int sent = socket.Send(packetHeader);
+                int sent = socket.Send(packetHeader);
 
-            while (sent < packetHeader.Length)
-                sent += socket.Send(packetHeader, sent, packetHeader.Length - sent, SocketFlags.None);
+                while (sent < packetHeader.Length)
+                    sent += socket.Send(packetHeader, sent, packetHeader.Length - sent, SocketFlags.None);
 
-            sent = socket.Send(data);
+                sent = socket.Send(data);
 
-            while (sent < data.Length)
-                sent += socket.Send(data, sent, data.Length - sent, SocketFlags.None);
+                while (sent < data.Length)
+                    sent += socket.Send(data, sent, data.Length - sent, SocketFlags.None);
+            }
+            catch (NullReferenceException)
+            {
+            }
+            catch (SocketException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
         }
     }
 }

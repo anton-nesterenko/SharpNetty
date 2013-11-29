@@ -22,14 +22,7 @@ namespace SharpNetty
             {
                 get
                 {
-                    // Credits to http://stackoverflow.com/questions/2661764/how-to-check-if-a-socket-is-connected-disconnected-in-c
-                    // for this check.
-                    bool part1 = _socket.Poll(1000, SelectMode.SelectRead);
-                    bool part2 = (_socket.Available == 0);
-                    if (part1 & part2)
-                        return false;
-                    else
-                        return true;
+                    return _nettyServer.GetIsConnected(_socket);
                 }
             }
 
@@ -68,10 +61,43 @@ namespace SharpNetty
         {
             if (_connections[index] == null || _connections[index].Socket == null)
             {
-                throw new Exception("Invaid Socket Request!");
+                throw new Exception("[NettyServer] Invaid Socket Request!");
             }
 
             return _connections[index];
+        }
+
+        public Connection[] GetConnections()
+        {
+            return _connections;
+        }
+
+        public int GetConnectionIndex(Connection connection)
+        {
+            for (int i = 0; i < _connections.Length; i++)
+            {
+                if (_connections[i] == connection)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        public int GetConnectionIndex(Socket socket)
+        {
+            for (int i = 0; i < _connections.Length; i++)
+            {
+                if (_connections[i] == null) continue;
+
+                if (_connections[i].Socket == socket)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
         }
 
         /// <summary>
@@ -80,16 +106,25 @@ namespace SharpNetty
         /// <param name="index">Index (unique id) of the connected to be removed.</param>
         public void RemoveConnection(int index)
         {
-            if (_connections[index].Socket.Connected)
+            try
             {
-                _connections[index].Socket.Disconnect(false);
+                if (index >= _connections.Length || index < 0)
+                    return;
+
+                if (_connections[index] == null)
+                    return;
+
+                _connections[index].Socket.Dispose();
+
+                if (this.Handle_LostConnection != null)
+                    this.Handle_LostConnection(index);
+
+                _connections[index].Socket = null;
+                _connections[index] = null;
             }
-
-            if (this.Handle_LostConnection != null)
-                this.Handle_LostConnection(index);
-
-            _connections[index].Socket = null;
-            _connections[index] = null;
+            catch (NullReferenceException)
+            {
+            }
         }
 
         /// <summary>
@@ -101,7 +136,7 @@ namespace SharpNetty
         {
             if (_mainSocket.IsBound)
             {
-                throw new Exception("The socket is already bound!");
+                throw new Exception("[NettyServer] The socket is already bound!");
             }
 
             _socketPort = port;
@@ -134,7 +169,7 @@ namespace SharpNetty
 
                 _mainSocket.Listen(backLog);
 
-                Console.WriteLine("Server listening on address: " + _mainSocket.LocalEndPoint);
+                Console.WriteLine("[NettyServer] Server listening on address: " + _mainSocket.LocalEndPoint);
 
                 while (true)
                 {
@@ -153,13 +188,19 @@ namespace SharpNetty
                         }
                     }
 
-                    Console.WriteLine("Received a connection from: " + incomingSocket.RemoteEndPoint);
+                    Console.WriteLine("[NettyServer] Received a connection from: " + incomingSocket.RemoteEndPoint);
 
                     if (Handle_NewConnection != null) Handle_NewConnection.Invoke(index);
 
-                    Thread recThread = new Thread(x => BeginReceiving(incomingSocket, index));
-                    recThread.Name = incomingSocket.RemoteEndPoint + ": incoming data thread.";
-                    recThread.Start();
+                    try
+                    {
+                        Thread recThread = new Thread(x => BeginReceiving(incomingSocket, index));
+                        recThread.Name = incomingSocket.RemoteEndPoint + ": incoming data thread.";
+                        recThread.Start();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                    }
                 }
             });
 

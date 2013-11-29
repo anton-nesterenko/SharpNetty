@@ -17,7 +17,13 @@ namespace SharpNetty
         {
         }
 
-        public bool Connected { get { return _mainSocket.Connected; } }
+        public bool Connected
+        {
+            get
+            {
+                return this.GetIsConnected(_mainSocket);
+            }
+        }
 
         /// <summary>
         /// Establishes a connection with a server at the specified IP & Port.
@@ -30,18 +36,24 @@ namespace SharpNetty
         {
             IPEndPoint endPoint = new IPEndPoint(IPAddress.Parse(ip), port);
 
-            for (int i = 0; i < attemptCount && !_mainSocket.Connected; i++)
+            for (int i = 0; i < attemptCount; i++)
             {
                 try
                 {
                     _mainSocket.Connect(endPoint);
                     new Thread(x => BeginReceiving(_mainSocket, 0)).Start();
-                    Console.WriteLine("Connection established with " + ip + ":" + port);
+                    Console.WriteLine("[NettyClient] Connection established with " + ip + ":" + port);
                     return true;
                 }
-                catch (SocketException) { }
+                catch (SocketException)
+                {
+                    return false;
+                }
+                catch (InvalidOperationException)
+                {
+                    return false;
+                }
             }
-
             return false;
         }
 
@@ -50,8 +62,10 @@ namespace SharpNetty
         /// </summary>
         public void Disconnect()
         {
-            _mainSocket.Disconnect(false);
+            bool noDelay = _mainSocket.NoDelay;
             _mainSocket.Dispose();
+            _mainSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            _mainSocket.NoDelay = noDelay;
         }
 
         /// <summary>
