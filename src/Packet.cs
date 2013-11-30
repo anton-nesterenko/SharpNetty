@@ -14,6 +14,12 @@ namespace SharpNetty
             get { return _dataBuffer; }
         }
 
+        public int SocketIndex
+        {
+            get;
+            internal set;
+        }
+
         /// <summary>
         /// Specifies the unique identity for this packet.
         /// </summary>
@@ -32,6 +38,6 @@ namespace SharpNetty
             return _timeStamp;
         }
 
-        public abstract void Execute(Netty netty, int socketIndex);
+        public abstract void Execute(Netty netty);
     }
 }

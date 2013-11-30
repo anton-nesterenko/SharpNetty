@@ -221,7 +221,7 @@ namespace SharpNetty
         /// Sends a packet to the designated remote socket connnection.
         /// </summary>
         /// <param name="packet">Object containing the packet's unique information</param>
-        /// <param name="socketIndex">Socket ID of the desired remote socket that the packet will be sent to.</param>
+        /// <param name="this.SocketIndex">Socket ID of the desired remote socket that the packet will be sent to.</param>
         /// <param name="forceSend">Force the current Message Buffer to be sent and flushed.</param>
         public void SendPacket(Packet packet, int socketIndex)
         {

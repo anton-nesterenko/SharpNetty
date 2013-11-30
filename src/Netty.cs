@@ -13,6 +13,10 @@ namespace SharpNetty
         protected Socket _mainSocket;
         private List<Packet> _registeredPackets;
 
+        public delegate void Handle_Packet_Delegate(Packet packet);
+
+        public Handle_Packet_Delegate Handle_Packet;
+
         public Netty(bool noDelay = false)
         {
             // Create a new Generic List instance which will store our Registered Packets; assign this new instance to the variable _registeredPackets.
@@ -168,8 +172,13 @@ namespace SharpNetty
                     execPacket.DataBuffer.FillBuffer(data);
                     // Set the DataBuffer's offset to the value of readOffset.
                     execPacket.DataBuffer.SetOffset(4);
+                    execPacket.SocketIndex = socketIndex;
+
                     // Execute the packet.
-                    execPacket.Execute(this, socketIndex);
+                    if (this.Handle_Packet != null)
+                        this.Handle_Packet.Invoke(execPacket);
+                    else
+                        execPacket.Execute(this);
                 }
 
                 catch (ObjectDisposedException)
