@@ -235,7 +235,10 @@ namespace SharpNetty
         public void BroadcastPacket(Packet packet)
         {
             foreach (var connection in _connections)
-                this.SendPacket(packet, connection.Socket);
+            {
+                if (connection != null)
+                    this.SendPacket(packet, connection.Socket);
+            }
         }
 
         internal void SendPacket(Packet packet, Socket socket)
