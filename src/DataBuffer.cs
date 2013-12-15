@@ -92,13 +92,10 @@ namespace SharpNetty
         /// <param name="value">Int-16 value to be written into the buffer.</param>
         public void WriteShort(short value)
         {
-            byte[] tmp = BitConverter.GetBytes(value);
-            Resize(_offset + tmp.Length);
+            Resize(_offset + 2);
 
-            for (int i = 0; i < 2; i++)
-            {
-                _buffer[_offset++] = tmp[i];
-            }
+            _buffer[_offset++] = (byte)(value);
+            _buffer[_offset++] = (byte)(value >> 8);
         }
 
         /// <summary>
@@ -123,13 +120,12 @@ namespace SharpNetty
         /// <param name="value">Int-32 value to be written into the buffer.</param>
         public void WriteInteger(int value)
         {
-            byte[] tmp = BitConverter.GetBytes(value);
-            Resize(_offset + tmp.Length);
+            Resize(_offset + 4);
 
-            for (int i = 0; i < 4; i++)
-            {
-                _buffer[_offset++] = tmp[i];
-            }
+            _buffer[_offset++] = (byte)(value);
+            _buffer[_offset++] = (byte)(value >> 8);
+            _buffer[_offset++] = (byte)(value >> 16);
+            _buffer[_offset++] = (byte)(value >> 24);
         }
 
         /// <summary>
@@ -192,9 +188,7 @@ namespace SharpNetty
         /// </summary>
         public short ReadShort()
         {
-            short value = BitConverter.ToInt16(_buffer, _offset);
-            _offset += 2;
-            return value;
+            return (short)(_buffer[_offset++] | _buffer[_offset++] << 8);
         }
 
         /// <summary>
@@ -202,9 +196,7 @@ namespace SharpNetty
         /// </summary>
         public int ReadInteger()
         {
-            int value = BitConverter.ToInt32(_buffer, _offset);
-            _offset += 4;
-            return value;
+            return (int)(_buffer[_offset++] | _buffer[_offset++] << 8 | _buffer[_offset++] << 16 | _buffer[_offset++] << 24);
         }
 
         /// <summary>
