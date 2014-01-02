@@ -116,11 +116,11 @@ namespace SharpNetty
 
                 _connections[index].Socket.Dispose();
 
-                if (this.Handle_LostConnection != null)
-                    this.Handle_LostConnection(index);
-
                 _connections[index].Socket = null;
                 _connections[index] = null;
+
+                if (this.Handle_LostConnection != null)
+                    this.Handle_LostConnection(index);
             }
             catch (NullReferenceException)
             {

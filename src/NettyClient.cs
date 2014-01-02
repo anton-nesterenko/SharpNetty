@@ -12,9 +12,15 @@ namespace SharpNetty
 
         public Handle_ConnectionChange Handle_ConnectionLost;
 
+        // 2 second connection timeout
+        private const int CONNECTION_TIMEOUT = 2000;
+
+        private bool NoDelay { get; set; }
+
         public NettyClient(bool noDelay = false)
             : base(noDelay)
         {
+            this.NoDelay = noDelay;
         }
 
         public bool Connected
@@ -34,24 +40,44 @@ namespace SharpNetty
         /// <returns>Returns true if a connection was established.</returns>
         public bool Connect(string ip, int port, byte attemptCount)
         {
-            IPEndPoint endPoint = new IPEndPoint(IPAddress.Parse(ip), port);
-
             for (int i = 0; i < attemptCount; i++)
             {
                 try
                 {
-                    _mainSocket.Connect(endPoint);
-                    new Thread(x => BeginReceiving(_mainSocket, 0)).Start();
-                    Console.WriteLine("[NettyClient] Connection established with " + ip + ":" + port);
-                    return true;
+
+                    _mainSocket = new Socket(_mainSocket.AddressFamily, _mainSocket.SocketType, _mainSocket.ProtocolType);
+                    _mainSocket.NoDelay = this.NoDelay;
+
+                    var result = _mainSocket.BeginConnect(ip, port, null, null);
+
+                    if (result.AsyncWaitHandle.WaitOne(CONNECTION_TIMEOUT, true))
+                    {
+                        if (_mainSocket.Connected)
+                        {
+                            new Thread(x => BeginReceiving(_mainSocket, 0)).Start();
+                            Console.WriteLine("[NettyClient] Connection established with " + ip + ":" + port);
+                            _mainSocket.EndConnect(result);
+                            return true;
+                        }
+                        else
+                        {
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        _mainSocket.Close();
+                    }
                 }
                 catch (SocketException)
                 {
-                    return false;
+                    _mainSocket.Close();
+                    continue;
                 }
                 catch (InvalidOperationException)
                 {
-                    return false;
+                    _mainSocket.Close();
+                    continue;
                 }
             }
             return false;

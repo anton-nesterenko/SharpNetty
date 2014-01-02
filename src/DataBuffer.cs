@@ -244,10 +244,10 @@ namespace SharpNetty
         /// Utilizes Microsoft's GZipStream library to compress the packet's byte array size
         /// </summary>
         /// <param name="compressionLevel">Level of compression peformend on the packet's byte array</param>
-        public void CompressPacket(CompressionLevel compressionLevel)
+        public void CompressPacket(CompressionMode compressionMode)
         {
             MemoryStream stream = new MemoryStream();
-            GZipStream gStream = new GZipStream(stream, compressionLevel);
+            GZipStream gStream = new GZipStream(stream, compressionMode);
             gStream.Write(_buffer, 0, _buffer.Length);
             gStream.Close();
             _buffer = stream.ToArray();
@@ -255,10 +255,10 @@ namespace SharpNetty
             _offset = _buffer.Length;
         }
 
-        public void DecompressPacket(CompressionLevel compressionLevel)
+        public void DecompressPacket(CompressionMode compressionMode)
         {
             MemoryStream stream = new MemoryStream();
-            GZipStream gStream = new GZipStream(stream, compressionLevel);
+            GZipStream gStream = new GZipStream(stream, compressionMode);
             gStream.Read(_buffer, 0, _buffer.Length);
             _buffer = stream.ToArray();
             gStream.Close();

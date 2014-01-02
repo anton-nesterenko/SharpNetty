@@ -17,6 +17,8 @@ namespace SharpNetty
 
         public Handle_Packet_Delegate Handle_Packet;
 
+        private bool noDelay;
+
         public Netty(bool noDelay = false)
         {
             // Create a new Generic List instance which will store our Registered Packets; assign this new instance to the variable _registeredPackets.
@@ -31,6 +33,8 @@ namespace SharpNetty
 
             // Disable Nagle's Algo. depedending on the value of noDelay (default false).
             _mainSocket.NoDelay = noDelay;
+
+            this.noDelay = noDelay;
         }
 
         protected bool GetIsConnected(Socket socket)
@@ -118,6 +122,7 @@ namespace SharpNetty
             byte[] data;
             DataBuffer dataBuffer;
             Packet execPacket;
+            Packet packet;
             int packetID;
 
             // Continue the attempts to receive data so long as the connection is open.
@@ -162,24 +167,32 @@ namespace SharpNetty
                     packetID = dataBuffer.ReadInteger();
 
                     // Create a new Packet instance by finding the unique packet in our registered packets by using the packetID.
-                    Packet packet =
-                        (from p in _registeredPackets
-                         where p.PacketID == packetID
-                         select p).First();
+                    try
+                    {
+                        packet =
+                           (from p in _registeredPackets
+                            where p.PacketID == packetID
+                            select p).FirstOrDefault();
 
-                    // Create a new instance of Packet based on the registered packet that matched our unique packet id.
-                    execPacket = Activator.CreateInstance(packet.GetType()) as Packet;
-                    // Fill the packet's DataBuffer.
-                    execPacket.DataBuffer.FillBuffer(data);
-                    // Set the DataBuffer's offset to the value of readOffset.
-                    execPacket.DataBuffer.SetOffset(4);
-                    execPacket.SocketIndex = socketIndex;
+                        // Create a new instance of Packet based on the registered packet that matched our unique packet id.
+                        execPacket = Activator.CreateInstance(packet.GetType()) as Packet;
+                        // Fill the packet's DataBuffer.
+                        execPacket.DataBuffer.FillBuffer(data);
+                        // Set the DataBuffer's offset to the value of readOffset.
+                        execPacket.DataBuffer.SetOffset(4);
+                        execPacket.SocketIndex = socketIndex;
 
-                    // Execute the packet.
-                    if (this.Handle_Packet != null)
-                        this.Handle_Packet.Invoke(execPacket);
-                    else
-                        execPacket.Execute(this);
+                        // Execute the packet.
+                        if (this.Handle_Packet != null)
+                            this.Handle_Packet.Invoke(execPacket);
+                        else
+                            execPacket.Execute(this);
+                    }
+                    catch (Exception)
+                    {
+                        Console.WriteLine("Invalid packet with ID: " + packetID + " received.");
+                        continue;
+                    }
                 }
 
                 catch (ObjectDisposedException)
@@ -210,10 +223,9 @@ namespace SharpNetty
                 if (nettyClient.Handle_ConnectionLost != null)
                     nettyClient.Handle_ConnectionLost.Invoke();
 
-                bool noDelay = _mainSocket.NoDelay;
                 _mainSocket.Dispose();
                 _mainSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                _mainSocket.NoDelay = noDelay;
+                _mainSocket.NoDelay = this.noDelay;
 
                 // We've cleaned up everything here; there's no need to notify the end user.
                 return;
@@ -224,7 +236,8 @@ namespace SharpNetty
 
             int socketIndex = nettyServer.GetConnectionIndex(socket);
 
-            nettyServer.RemoveConnection(socketIndex);
+            if (socketIndex != -1)
+                nettyServer.RemoveConnection(socketIndex);
         }
 
         protected void SendPacket(Socket socket, Packet packet)
@@ -251,6 +264,7 @@ namespace SharpNetty
             }
             catch (NullReferenceException)
             {
+
             }
             catch (SocketException)
             {
