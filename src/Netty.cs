@@ -19,6 +19,10 @@ namespace SharpNetty
 
         private bool noDelay;
 
+        private const int SOCKET_POLL_TIME = 1000;
+
+        private const int PACKET_HEADER_LENGTH = 4;
+
         public Netty(bool noDelay = false)
         {
             // Create a new Generic List instance which will store our Registered Packets; assign this new instance to the variable _registeredPackets.
@@ -41,8 +45,8 @@ namespace SharpNetty
         {
             try
             {
-                bool part1 = socket.Poll(1000, SelectMode.SelectRead);
-                bool part2 = socket.Poll(1000, SelectMode.SelectWrite);
+                bool part1 = socket.Poll(SOCKET_POLL_TIME, SelectMode.SelectRead);
+                bool part2 = socket.Poll(SOCKET_POLL_TIME, SelectMode.SelectWrite);
                 bool part3 = (socket.Available == 0);
                 if (part1 && part2 && part3)
                 {
@@ -131,7 +135,7 @@ namespace SharpNetty
                 try
                 {
                     // Stores our packet header length.
-                    pLength = 4;
+                    pLength = PACKET_HEADER_LENGTH;
                     // Stores the current amount of bytes that have been read.
                     curRead = 0;
                     // Stores the bytes that we have read from the socket.

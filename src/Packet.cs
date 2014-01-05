@@ -5,8 +5,6 @@ namespace SharpNetty
 {
     public abstract class Packet
     {
-        private int _timeStamp;
-
         private DataBuffer _dataBuffer = new DataBuffer();
 
         public DataBuffer DataBuffer
@@ -26,16 +24,6 @@ namespace SharpNetty
         public abstract int PacketID
         {
             get;
-        }
-
-        public Packet()
-        {
-            _timeStamp = Environment.TickCount;
-        }
-
-        public int GetTimeStamp()
-        {
-            return _timeStamp;
         }
 
         public abstract void Execute(Netty netty);
