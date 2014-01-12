@@ -5,11 +5,11 @@ namespace SharpNetty
 {
     public abstract class Packet
     {
-        private DataBuffer _dataBuffer = new DataBuffer();
+        private DataBuffer m_dataBuffer = new DataBuffer();
 
         public DataBuffer DataBuffer
         {
-            get { return _dataBuffer; }
+            get { return m_dataBuffer; }
         }
 
         public int SocketIndex
