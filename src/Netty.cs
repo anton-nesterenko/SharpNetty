@@ -10,20 +10,20 @@ namespace SharpNetty
 {
     public abstract class Netty
     {
-        protected Socket _mainSocket;
-        private List<Packet> _registeredPackets;
+        protected Socket MainSocket;
+        private readonly List<Packet> _registeredPackets;
 
         public delegate void Handle_Packet_Delegate(Packet packet);
 
         public Handle_Packet_Delegate Handle_Packet;
 
-        private bool noDelay;
+        private readonly bool _noDelay;
 
         private const int SOCKET_POLL_TIME = 1000;
 
         private const int PACKET_HEADER_LENGTH = 4;
 
-        public Netty(bool noDelay = false)
+        protected Netty(bool noDelay = false)
         {
             // Create a new Generic List instance which will store our Registered Packets; assign this new instance to the variable _registeredPackets.
             _registeredPackets = new List<Packet>();
@@ -33,12 +33,14 @@ namespace SharpNetty
 
             // Create a new instance of the class Socket; assign this new instance to the variable _mainSocket.
             // We're using a InterNetwork, TCP, Stream Based connection.
-            _mainSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            this.MainSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+            {
+                NoDelay = noDelay
+            };
 
             // Disable Nagle's Algo. depedending on the value of noDelay (default false).
-            _mainSocket.NoDelay = noDelay;
 
-            this.noDelay = noDelay;
+            this._noDelay = noDelay;
         }
 
         protected bool GetIsConnected(Socket socket)
@@ -72,7 +74,7 @@ namespace SharpNetty
         private void RegisterPacket(Packet packet)
         {
             // Output the details of the packet that we're registering.
-            Console.WriteLine("Registering packet: " + packet.ToString());
+            Console.WriteLine("Registering packet: " + packet.PacketID);
 
             // Add this new packet instance to our registered packets list (_registeredPackets).
             _registeredPackets.Add(packet);
@@ -80,26 +82,19 @@ namespace SharpNetty
 
         private void RegisterPackets()
         {
-            List<int> usedPacketIds = new List<int>();
+            var usedPacketIds = new List<int>();
 
             // Loop through the assembly that is using this library.
             // Find each Class that extends the abstract class Packet, and register the classes that we find.
-            foreach (var type in Assembly.GetEntryAssembly().GetTypes())
+            foreach (var packet in from type in Assembly.GetEntryAssembly().GetTypes() where type.IsSubclassOf(typeof(Packet)) select Activator.CreateInstance(type) as Packet)
             {
-                // If the type is a sub class (derives from) Packet.
-                if (type.IsSubclassOf(typeof(Packet)))
-                {
-                    // Create a new instance of Packet based on type.
-                    Packet packet = Activator.CreateInstance(type) as Packet;
+                if (usedPacketIds.Contains(packet.PacketID))
+                    throw new Exception(packet.ToString() + " is using an existing packet identifier!");
 
-                    if (usedPacketIds.Contains(packet.PacketID))
-                        throw new Exception(packet.ToString() + " is using an existing packet identifier!");
+                // Register the new packet.
+                RegisterPacket(packet);
 
-                    // Register the new packet.
-                    RegisterPacket(packet);
-
-                    usedPacketIds.Add(packet.PacketID);
-                }
+                usedPacketIds.Add(packet.PacketID);
             }
 
             usedPacketIds.Clear();
@@ -121,25 +116,17 @@ namespace SharpNetty
 
         protected void BeginReceiving(Socket socket, int socketIndex)
         {
-            int pLength;
-            int curRead;
-            byte[] data;
-            DataBuffer dataBuffer;
-            Packet execPacket;
-            Packet packet;
-            int packetID;
-
             // Continue the attempts to receive data so long as the connection is open.
             while (this.GetIsConnected(socket))
             {
                 try
                 {
                     // Stores our packet header length.
-                    pLength = PACKET_HEADER_LENGTH;
+                    int pLength = PACKET_HEADER_LENGTH;
                     // Stores the current amount of bytes that have been read.
-                    curRead = 0;
+                    int curRead = 0;
                     // Stores the bytes that we have read from the socket.
-                    data = new byte[pLength];
+                    var data = new byte[pLength];
 
                     // Attempt to read from the socket.
                     curRead = socket.Receive(data, 0, pLength, SocketFlags.None);
@@ -162,24 +149,24 @@ namespace SharpNetty
                     while (curRead < pLength)
                         curRead += socket.Receive(data, curRead, pLength - curRead, SocketFlags.None);
 
-                    dataBuffer = new DataBuffer();
+                    var dataBuffer = new DataBuffer();
 
                     // Fill our DataBuffer.
                     dataBuffer.FillBuffer(data);
 
                     // Get the unique packetID.
-                    packetID = dataBuffer.ReadInteger();
+                    int packetID = dataBuffer.ReadInteger();
 
                     // Create a new Packet instance by finding the unique packet in our registered packets by using the packetID.
-                    try
-                    {
-                        packet =
-                           (from p in _registeredPackets
-                            where p.PacketID == packetID
-                            select p).FirstOrDefault();
 
-                        // Create a new instance of Packet based on the registered packet that matched our unique packet id.
-                        execPacket = Activator.CreateInstance(packet.GetType()) as Packet;
+                    var packet = (from p in _registeredPackets
+                                  where p.PacketID == packetID
+                                  select p).FirstOrDefault();
+
+                    // Create a new instance of Packet based on the registered packet that matched our unique packet id.
+                    if (packet != null)
+                    {
+                        var execPacket = Activator.CreateInstance(packet.GetType()) as Packet;
                         // Fill the packet's DataBuffer.
                         execPacket.DataBuffer.FillBuffer(data);
                         // Set the DataBuffer's offset to the value of readOffset.
@@ -192,7 +179,7 @@ namespace SharpNetty
                         else
                             execPacket.Execute(this);
                     }
-                    catch (Exception)
+                    else
                     {
                         Console.WriteLine("Invalid packet with ID: " + packetID + " received.");
                         continue;
@@ -218,7 +205,7 @@ namespace SharpNetty
             // If this is our client's incoming data listener,
             // we should just allow the socket to disconnect, and then notify the deriving class
             // that the socket has disconnected!
-            if (this.GetType() == typeof(NettyClient))
+            if (this is NettyClient)
             {
                 // Create a new reference of this object and cast it to NettyClient.
                 var nettyClient = this as NettyClient;
@@ -227,9 +214,11 @@ namespace SharpNetty
                 if (nettyClient.Handle_ConnectionLost != null)
                     nettyClient.Handle_ConnectionLost.Invoke();
 
-                _mainSocket.Dispose();
-                _mainSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                _mainSocket.NoDelay = this.noDelay;
+                MainSocket.Dispose();
+                MainSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+                {
+                    NoDelay = this._noDelay
+                };
 
                 // We've cleaned up everything here; there's no need to notify the end user.
                 return;
@@ -248,7 +237,7 @@ namespace SharpNetty
         {
             try
             {
-                DataBuffer dataBuffer = new DataBuffer();
+                var dataBuffer = new DataBuffer();
                 dataBuffer.WriteInteger(packet.PacketID);
                 dataBuffer.WriteBytes(packet.DataBuffer.ReadBytes());
 

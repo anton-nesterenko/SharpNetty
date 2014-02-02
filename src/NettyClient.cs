@@ -8,9 +8,9 @@ namespace SharpNetty
 {
     public sealed class NettyClient : Netty
     {
-        public delegate void Handle_ConnectionChange();
+        public delegate void HandleConnectionChange();
 
-        public Handle_ConnectionChange Handle_ConnectionLost;
+        public HandleConnectionChange Handle_ConnectionLost;
 
         // 2 second connection timeout
         private const int CONNECTION_TIMEOUT = 2000;
@@ -27,7 +27,7 @@ namespace SharpNetty
         {
             get
             {
-                return this.GetIsConnected(_mainSocket);
+                return this.GetIsConnected(MainSocket);
             }
         }
 
@@ -45,18 +45,20 @@ namespace SharpNetty
                 try
                 {
 
-                    _mainSocket = new Socket(_mainSocket.AddressFamily, _mainSocket.SocketType, _mainSocket.ProtocolType);
-                    _mainSocket.NoDelay = this.NoDelay;
+                    MainSocket = new Socket(MainSocket.AddressFamily, MainSocket.SocketType, MainSocket.ProtocolType)
+                    {
+                        NoDelay = this.NoDelay
+                    };
 
-                    var result = _mainSocket.BeginConnect(ip, port, null, null);
+                    var result = MainSocket.BeginConnect(ip, port, null, null);
 
                     if (result.AsyncWaitHandle.WaitOne(CONNECTION_TIMEOUT, true))
                     {
-                        if (_mainSocket.Connected)
+                        if (MainSocket.Connected)
                         {
-                            new Thread(x => BeginReceiving(_mainSocket, 0)).Start();
+                            new Thread(x => BeginReceiving(MainSocket, 0)).Start();
                             Console.WriteLine("[NettyClient] Connection established with " + ip + ":" + port);
-                            _mainSocket.EndConnect(result);
+                            MainSocket.EndConnect(result);
                             return true;
                         }
                         else
@@ -66,17 +68,17 @@ namespace SharpNetty
                     }
                     else
                     {
-                        _mainSocket.Close();
+                        MainSocket.Close();
                     }
                 }
                 catch (SocketException)
                 {
-                    _mainSocket.Close();
+                    MainSocket.Close();
                     continue;
                 }
                 catch (InvalidOperationException)
                 {
-                    _mainSocket.Close();
+                    MainSocket.Close();
                     continue;
                 }
             }
@@ -88,10 +90,12 @@ namespace SharpNetty
         /// </summary>
         public void Disconnect()
         {
-            bool noDelay = _mainSocket.NoDelay;
-            _mainSocket.Dispose();
-            _mainSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            _mainSocket.NoDelay = noDelay;
+            var noDelay = MainSocket.NoDelay;
+            MainSocket.Dispose();
+            MainSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+            {
+                NoDelay = noDelay
+            };
         }
 
         /// <summary>
@@ -99,7 +103,7 @@ namespace SharpNetty
         /// </summary>
         public void SendPacket(Packet packet)
         {
-            this.SendPacket(_mainSocket, packet);
+            this.SendPacket(MainSocket, packet);
         }
     }
 }

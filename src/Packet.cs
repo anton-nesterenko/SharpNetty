@@ -1,15 +1,12 @@
-﻿using System;
-using System.Net.Sockets;
-
-namespace SharpNetty
+﻿namespace SharpNetty
 {
     public abstract class Packet
     {
-        private DataBuffer m_dataBuffer = new DataBuffer();
+        private readonly DataBuffer _dataBuffer = new DataBuffer();
 
         public DataBuffer DataBuffer
         {
-            get { return m_dataBuffer; }
+            get { return _dataBuffer; }
         }
 
         public int SocketIndex

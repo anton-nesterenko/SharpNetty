@@ -10,7 +10,7 @@ namespace SharpNetty
         public class Connection
         {
             private Socket _socket;
-            private NettyServer _nettyServer;
+            private readonly NettyServer _nettyServer;
 
             public Socket Socket
             {
@@ -134,7 +134,7 @@ namespace SharpNetty
         /// <param name="port">Port value that the socket will listen on.</param>
         private void SetAddress(string ip, int port)
         {
-            if (_mainSocket.IsBound)
+            if (MainSocket.IsBound)
             {
                 throw new Exception("[NettyServer] The socket is already bound!");
             }
@@ -148,7 +148,7 @@ namespace SharpNetty
         /// </summary>
         public void StopListening()
         {
-            _mainSocket.Shutdown(SocketShutdown.Receive);
+            MainSocket.Shutdown(SocketShutdown.Receive);
         }
 
         /// <summary>
@@ -159,29 +159,29 @@ namespace SharpNetty
         {
             _connections = new Connection[maximumConnections];
 
-            Thread listenerThread = new Thread(() =>
+            var listenerThread = new Thread(() =>
             {
-                Socket incomingSocket;
                 int index = -1;
 
                 if (_socketAddress == null) throw new Exception("You must specifiy the socket address before calling the listen method!");
-                if (!_mainSocket.IsBound) throw new Exception("You must bind the socket before calling the listen method!");
+                if (!MainSocket.IsBound) throw new Exception("You must bind the socket before calling the listen method!");
 
-                _mainSocket.Listen(backLog);
+                MainSocket.Listen(backLog);
 
-                Console.WriteLine("[NettyServer] Server listening on address: " + _mainSocket.LocalEndPoint);
+                Console.WriteLine("[NettyServer] Server listening on address: " + MainSocket.LocalEndPoint);
 
                 while (true)
                 {
-                    incomingSocket = _mainSocket.Accept();
+                    var incomingSocket = MainSocket.Accept();
 
                     for (int i = 0; i < maximumConnections; i++)
                     {
                         if (_connections[i] == null)
                         {
-                            _connections[i] = new Connection(incomingSocket, this);
-
-                            _connections[i].Socket.NoDelay = _mainSocket.NoDelay;
+                            _connections[i] = new Connection(incomingSocket, this)
+                            {
+                                Socket = { NoDelay = MainSocket.NoDelay }
+                            };
 
                             index = i;
                             break;
@@ -202,9 +202,8 @@ namespace SharpNetty
                     {
                     }
                 }
-            });
+            }) { Name = "NettyServer Incoming Connection Thread" };
 
-            listenerThread.Name = "NettyServer Incoming Connection Thread";
             listenerThread.Start();
         }
 
@@ -214,7 +213,7 @@ namespace SharpNetty
         public void BindSocket(string ip, int port)
         {
             SetAddress(ip, port);
-            _mainSocket.Bind(_socketAddress);
+            MainSocket.Bind(_socketAddress);
         }
 
         /// <summary>
